@@ -15,10 +15,10 @@
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     
-    <!-- Font Awesome for Icons -->
+    <!-- Font Awesome -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 
-    <!-- Google Fonts -->
+    <!-- Fonts -->
     <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&family=Inter:wght@300;400;600&display=swap" rel="stylesheet">
 
     <style>
@@ -26,15 +26,12 @@
         .latin-font { font-family: 'Cinzel', serif; }
         .chapter-grid::-webkit-scrollbar { width: 6px; }
         .chapter-grid::-webkit-scrollbar-thumb { background-color: #cbd5e1; border-radius: 4px; }
-        
-        /* Animation Classes */
         @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
         .animate-fade-in { animation: fadeIn 0.3s ease-out forwards; }
     </style>
 </head>
 <body>
 
-    <!-- Load Data Files -->
     <script src="all_latin_new.js"></script>
     <script src="latin_morphology.js"></script>
 
@@ -42,7 +39,6 @@
 
     <script type="text/babel">
 
-        // --- DEMO DATA ---
         const DEMO_DB = [
             { lat: "agricola", eng: "farmer", gen: "m", pos: "n", ch: 1, decl: 1 },
             { lat: "amo", eng: "to love", gen: "x", pos: "v", ch: 1, conj: 1 },
@@ -64,18 +60,18 @@
             const [selectedChapters, setSelectedChapters] = useState(new Set([1]));
             
             // Settings
-            const [mode, setMode] = useState('VOCAB'); // VOCAB, GRAMMAR
-            const [inputMode, setInputMode] = useState('MC'); // MC (Multiple Choice), TYPE
+            const [mode, setMode] = useState('VOCAB'); // VOCAB, DRILL, CHART, PARSE
+            const [inputMode, setInputMode] = useState('MC'); // MC, TYPE (For Vocab/Drill)
             const [direction, setDirection] = useState('LAT_TO_ENG'); 
 
             // Quiz State
             const [queue, setQueue] = useState([]);
             const [currentCardIndex, setCurrentCardIndex] = useState(0);
             const [score, setScore] = useState({ correct: 0, total: 0 });
-            const [feedback, setFeedback] = useState(null); // null, 'CORRECT', 'WRONG'
+            const [feedback, setFeedback] = useState(null); 
             const [userAnswer, setUserAnswer] = useState('');
-            const [grammarPrompt, setGrammarPrompt] = useState(null); // { label, answer, distractors }
-
+            const [grammarPrompt, setGrammarPrompt] = useState(null); 
+            
             // -- INIT --
             useEffect(() => {
                 if (window.vocabDB && Array.isArray(window.vocabDB)) {
@@ -105,29 +101,38 @@
                 else setSelectedChapters(new Set(availableChapters));
             };
 
-            const generateGrammarQuestion = (word) => {
+            // Used for 'DRILL' mode (Form Generation)
+            const generateDrillQuestion = (word) => {
+                if (!window.LatinMorph) return null;
+                const forms = window.LatinMorph.generateForms(word);
+                if (!forms) return null;
+                const keys = Object.keys(forms);
+                const randomKey = keys[Math.floor(Math.random() * keys.length)];
+                
+                return {
+                    label: window.LatinMorph.getFormattedLabel(randomKey),
+                    answer: forms[randomKey],
+                    distractors: window.LatinMorph.getDistractors(word, forms[randomKey])
+                };
+            };
+
+            // Used for 'PARSE' mode (Reverse Lookup)
+            const generateParseQuestion = (word) => {
                 if (!window.LatinMorph) return null;
                 const forms = window.LatinMorph.generateForms(word);
                 if (!forms) return null;
 
                 const keys = Object.keys(forms);
-                const randomKey = keys[Math.floor(Math.random() * keys.length)];
-                
-                // New: Get human readable label
-                const readableLabel = window.LatinMorph.getFormattedLabel(randomKey);
-                const correctText = forms[randomKey];
+                const correctKey = keys[Math.floor(Math.random() * keys.length)];
+                const correctValue = forms[correctKey]; // e.g., "agricolae"
 
-                let distractors = [];
-                // Generate distractors only if we are in MC mode
-                if (inputMode === 'MC') {
-                    distractors = window.LatinMorph.getDistractors(word, correctText);
-                }
+                // Distractors are other KEYS (e.g. Acc Sg) whose value is NOT "agricolae"
+                const distractorKeys = window.LatinMorph.getParseDistractors(word, correctKey, correctValue);
 
                 return {
-                    rawKey: randomKey,
-                    label: readableLabel,
-                    answer: correctText,
-                    distractors: distractors
+                    prompt: correctValue, // Show "agricolae"
+                    answerLabel: window.LatinMorph.getFormattedLabel(correctKey), // Answer "Genitive Singular"
+                    distractors: distractorKeys.map(k => window.LatinMorph.getFormattedLabel(k))
                 };
             };
 
@@ -136,18 +141,18 @@
 
                 let pool = db.filter(word => selectedChapters.has(word.ch));
                 
-                if (mode === 'GRAMMAR') {
+                // Filter for grammar modes
+                if (['DRILL', 'CHART', 'PARSE'].includes(mode)) {
                     pool = pool.filter(w => window.LatinMorph && window.LatinMorph.generateForms(w) !== null);
                 }
 
-                if (pool.length === 0) return alert("No suitable words found for these chapters.");
+                if (pool.length === 0) return alert("No suitable words found.");
 
                 pool = pool.sort(() => Math.random() - 0.5);
 
-                if (mode === 'GRAMMAR') {
-                    const firstQ = generateGrammarQuestion(pool[0]);
-                    setGrammarPrompt(firstQ);
-                }
+                // Setup first question
+                if (mode === 'DRILL') setGrammarPrompt(generateDrillQuestion(pool[0]));
+                if (mode === 'PARSE') setGrammarPrompt(generateParseQuestion(pool[0]));
 
                 setQueue(pool);
                 setCurrentCardIndex(0);
@@ -173,9 +178,8 @@
                     setFeedback(null);
                     setUserAnswer('');
                     
-                    if (mode === 'GRAMMAR') {
-                        setGrammarPrompt(generateGrammarQuestion(queue[nextIdx]));
-                    }
+                    if (mode === 'DRILL') setGrammarPrompt(generateDrillQuestion(queue[nextIdx]));
+                    if (mode === 'PARSE') setGrammarPrompt(generateParseQuestion(queue[nextIdx]));
                 }
             };
 
@@ -190,54 +194,52 @@
                 return (
                     <div className="min-h-screen flex flex-col items-center justify-center p-4">
                         <div className="bg-white w-full max-w-2xl rounded-2xl shadow-xl overflow-hidden">
-                            <div className="bg-slate-800 p-6 text-center text-white relative overflow-hidden">
-                                <div className="relative z-10">
-                                    <h1 className="text-3xl font-bold latin-font tracking-wider">MAGISTER</h1>
-                                    <p className="text-slate-300 text-sm mt-1">Latin Practice Engine</p>
-                                </div>
-                                <i className="fa-solid fa-building-columns absolute -bottom-4 -right-4 text-8xl text-slate-700 opacity-50"></i>
+                            <div className="bg-slate-800 p-6 text-center text-white relative">
+                                <h1 className="text-3xl font-bold latin-font tracking-wider z-10 relative">MAGISTER</h1>
+                                <p className="text-slate-300 text-sm mt-1">Latin Practice Engine</p>
                             </div>
 
-                            <div className="p-6 space-y-8">
-                                {/* ACTIVITY & MODE */}
+                            <div className="p-6 space-y-6">
+                                {/* ACTIVITY SELECTION */}
                                 <div className="space-y-4">
-                                    <h3 className="font-semibold text-slate-700 uppercase text-xs tracking-wider">Step 1: Settings</h3>
+                                    <h3 className="font-semibold text-slate-700 uppercase text-xs tracking-wider">Step 1: Choose Activity</h3>
                                     
-                                    {/* Mode Toggle */}
-                                    <div className="grid grid-cols-2 gap-4">
-                                        <button onClick={() => setMode('VOCAB')}
-                                            className={`p-4 rounded-xl border-2 transition-all flex flex-col items-center gap-2 ${mode === 'VOCAB' ? 'border-indigo-600 bg-indigo-50 text-indigo-700 shadow-md' : 'border-slate-200 text-slate-500 hover:bg-slate-50'}`}>
-                                            <i className="fa-solid fa-book-open text-2xl"></i>
-                                            <span className="font-bold">Vocabulary</span>
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                        <button onClick={() => setMode('VOCAB')} className={`p-4 rounded-xl border-2 text-left transition-all ${mode === 'VOCAB' ? 'border-indigo-600 bg-indigo-50 ring-1 ring-indigo-600' : 'border-slate-200 hover:bg-slate-50'}`}>
+                                            <div className="font-bold text-slate-800 mb-1"><i className="fa-solid fa-book-open mr-2 text-indigo-500"></i> Vocabulary</div>
+                                            <div className="text-xs text-slate-500">Drill definitions and translations.</div>
                                         </button>
-                                        <button onClick={() => setMode('GRAMMAR')}
-                                            className={`p-4 rounded-xl border-2 transition-all flex flex-col items-center gap-2 ${mode === 'GRAMMAR' ? 'border-indigo-600 bg-indigo-50 text-indigo-700 shadow-md' : 'border-slate-200 text-slate-500 hover:bg-slate-50'}`}>
-                                            <i className="fa-solid fa-shapes text-2xl"></i>
-                                            <span className="font-bold">Grammar</span>
+                                        
+                                        <button onClick={() => setMode('DRILL')} className={`p-4 rounded-xl border-2 text-left transition-all ${mode === 'DRILL' ? 'border-indigo-600 bg-indigo-50 ring-1 ring-indigo-600' : 'border-slate-200 hover:bg-slate-50'}`}>
+                                            <div className="font-bold text-slate-800 mb-1"><i className="fa-solid fa-pencil mr-2 text-pink-500"></i> Forms Drill</div>
+                                            <div className="text-xs text-slate-500">Create forms (e.g. "make Gen Sg").</div>
+                                        </button>
+                                        
+                                        <button onClick={() => setMode('PARSE')} className={`p-4 rounded-xl border-2 text-left transition-all ${mode === 'PARSE' ? 'border-indigo-600 bg-indigo-50 ring-1 ring-indigo-600' : 'border-slate-200 hover:bg-slate-50'}`}>
+                                            <div className="font-bold text-slate-800 mb-1"><i className="fa-solid fa-magnifying-glass mr-2 text-emerald-500"></i> Parse</div>
+                                            <div className="text-xs text-slate-500">Identify the form of a word.</div>
+                                        </button>
+
+                                        <button onClick={() => setMode('CHART')} className={`p-4 rounded-xl border-2 text-left transition-all ${mode === 'CHART' ? 'border-indigo-600 bg-indigo-50 ring-1 ring-indigo-600' : 'border-slate-200 hover:bg-slate-50'}`}>
+                                            <div className="font-bold text-slate-800 mb-1"><i className="fa-solid fa-table-cells mr-2 text-amber-500"></i> Sort Chart</div>
+                                            <div className="text-xs text-slate-500">Complete the full declension table.</div>
                                         </button>
                                     </div>
 
-                                    {/* Input Method */}
-                                    <div className="bg-slate-50 p-3 rounded-lg border border-slate-200">
-                                        <div className="flex gap-2 bg-white p-1 rounded-md border border-slate-100 shadow-sm">
-                                            <button onClick={() => setInputMode('MC')} className={`flex-1 py-2 text-sm font-semibold rounded ${inputMode === 'MC' ? 'bg-slate-800 text-white shadow' : 'text-slate-500 hover:bg-slate-100'}`}>Multiple Choice</button>
-                                            <button onClick={() => setInputMode('TYPE')} className={`flex-1 py-2 text-sm font-semibold rounded ${inputMode === 'TYPE' ? 'bg-slate-800 text-white shadow' : 'text-slate-500 hover:bg-slate-100'}`}>Type Answer</button>
+                                    {/* Sub-settings (Vocab/Drill only) */}
+                                    {(mode === 'VOCAB' || mode === 'DRILL') && (
+                                        <div className="bg-slate-50 p-3 rounded-lg border border-slate-200 flex gap-2">
+                                            <div className="text-xs font-bold text-slate-400 self-center uppercase mr-2">Method:</div>
+                                            <button onClick={() => setInputMode('MC')} className={`px-3 py-1 text-sm font-semibold rounded ${inputMode === 'MC' ? 'bg-white shadow text-slate-800' : 'text-slate-500'}`}>Multiple Choice</button>
+                                            <button onClick={() => setInputMode('TYPE')} className={`px-3 py-1 text-sm font-semibold rounded ${inputMode === 'TYPE' ? 'bg-white shadow text-slate-800' : 'text-slate-500'}`}>Type</button>
                                         </div>
-                                        
-                                        {/* Vocab Specific Settings */}
-                                        {mode === 'VOCAB' && (
-                                            <div className="flex gap-2 bg-white p-1 rounded-md border border-slate-100 shadow-sm mt-2">
-                                                <button onClick={() => setDirection('LAT_TO_ENG')} className={`flex-1 py-2 text-sm font-semibold rounded ${direction === 'LAT_TO_ENG' ? 'bg-indigo-100 text-indigo-800' : 'text-slate-500'}`}>Latin ➔ Eng</button>
-                                                <button onClick={() => setDirection('ENG_TO_LAT')} className={`flex-1 py-2 text-sm font-semibold rounded ${direction === 'ENG_TO_LAT' ? 'bg-indigo-100 text-indigo-800' : 'text-slate-500'}`}>Eng ➔ Latin</button>
-                                            </div>
-                                        )}
-                                    </div>
+                                    )}
                                 </div>
 
                                 {/* CHAPTERS */}
                                 <div>
                                     <div className="flex justify-between items-end mb-2">
-                                        <h3 className="font-semibold text-slate-700 uppercase text-xs tracking-wider">Step 2: Select Chapters</h3>
+                                        <h3 className="font-semibold text-slate-700 uppercase text-xs tracking-wider">Step 2: Chapters</h3>
                                         <button onClick={toggleAllChapters} className="text-xs text-indigo-600 font-bold hover:underline">Toggle All</button>
                                     </div>
                                     <div className="grid grid-cols-5 sm:grid-cols-8 gap-2 max-h-32 overflow-y-auto chapter-grid p-1">
@@ -279,9 +281,25 @@
                 )
             }
 
-            // --- QUIZ VIEW ---
+            // --- QUIZ ROUTER ---
             const currentWord = queue[currentCardIndex];
             
+            // Render specific components based on Mode
+            if (mode === 'CHART') {
+                return (
+                    <ChartActivity 
+                        word={currentWord} 
+                        onComplete={() => {
+                            setScore(s => ({ correct: s.correct + 1, total: s.total + 1 })); // Chart always counts as 1 if completed? Or per cell? Simplified to 1.
+                            nextCard();
+                        }}
+                        onExit={resetApp}
+                        progress={{ current: currentCardIndex + 1, total: queue.length }}
+                    />
+                );
+            }
+
+            // Standard Quiz Container for VOCAB, DRILL, PARSE
             return (
                 <div className="min-h-screen flex flex-col bg-slate-100">
                     {/* Top Bar */}
@@ -289,7 +307,7 @@
                         <button onClick={resetApp} className="text-slate-400 hover:text-red-500"><i className="fa-solid fa-xmark text-xl"></i></button>
                         <div className="flex flex-col items-center">
                             <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
-                                {mode === 'GRAMMAR' ? 'Morphology Drill' : `Chapter ${currentWord.ch}`}
+                                {mode} • Ch {currentWord.ch}
                             </span>
                             <div className="w-32 h-1.5 bg-slate-200 rounded-full mt-1 overflow-hidden">
                                 <div className="h-full bg-indigo-500 transition-all duration-300" style={{width: `${((currentCardIndex)/queue.length)*100}%`}}></div>
@@ -303,26 +321,30 @@
                         {/* THE CARD */}
                         <div className="w-full mb-6">
                             <div className="bg-white rounded-2xl shadow-xl border border-slate-200 overflow-hidden min-h-[180px] flex flex-col items-center justify-center text-center p-8 relative">
-                                {/* Grammar Prompt Label */}
-                                {mode === 'GRAMMAR' && (
+                                
+                                {/* Labels based on Mode */}
+                                {mode === 'DRILL' && (
                                     <span className="bg-amber-100 text-amber-800 text-sm font-bold px-3 py-1 rounded-full mb-3 shadow-sm border border-amber-200">
-                                        {grammarPrompt.label}
+                                        Form: {grammarPrompt.label}
+                                    </span>
+                                )}
+                                {mode === 'PARSE' && (
+                                    <span className="bg-emerald-100 text-emerald-800 text-sm font-bold px-3 py-1 rounded-full mb-3 shadow-sm border border-emerald-200">
+                                        Identify Form
                                     </span>
                                 )}
                                 
                                 <h2 className="text-4xl font-bold text-slate-800 latin-font mb-2">
                                     {mode === 'VOCAB' 
                                         ? (direction === 'LAT_TO_ENG' ? currentWord.lat : currentWord.eng)
-                                        : currentWord.lat
+                                        : (mode === 'PARSE' ? grammarPrompt.prompt : currentWord.lat)
                                     }
                                 </h2>
 
-                                {/* Hint Text */}
                                 <div className="text-slate-400 text-sm font-medium italic mt-2">
-                                    {mode === 'VOCAB' 
-                                        ? (direction === 'LAT_TO_ENG' ? 'Translate to English' : 'Translate to Latin')
-                                        : `${currentWord.eng} (${currentWord.pos === 'n' ? 'Noun' : 'Verb'})`
-                                    }
+                                    {mode === 'VOCAB' && (direction === 'LAT_TO_ENG' ? 'Translate to English' : 'Translate to Latin')}
+                                    {mode === 'DRILL' && `${currentWord.eng} (${currentWord.pos === 'n' ? 'Noun' : 'Verb'})`}
+                                    {mode === 'PARSE' && `from: ${currentWord.lat} (${currentWord.eng})`}
                                 </div>
                             </div>
                         </div>
@@ -331,20 +353,26 @@
                         <div className="w-full animate-fade-in">
                             {!feedback ? (
                                 <>
-                                    {inputMode === 'MC' ? (
+                                    {(mode === 'PARSE' || (inputMode === 'MC')) ? (
                                         <MultipleChoice 
                                             word={currentWord} 
                                             fullDb={db} 
                                             onAnswer={handleAnswer} 
                                             direction={direction}
-                                            // Pass custom options if in Grammar Mode
-                                            overrideOptions={mode === 'GRAMMAR' ? grammarPrompt.distractors.concat(grammarPrompt.answer) : null}
-                                            correctAnswer={mode === 'GRAMMAR' ? grammarPrompt.answer : null}
+                                            // Grammar/Parse Overrides
+                                            overrideOptions={
+                                                mode === 'DRILL' ? grammarPrompt.distractors.concat(grammarPrompt.answer) : 
+                                                mode === 'PARSE' ? grammarPrompt.distractors.concat(grammarPrompt.answerLabel) : null
+                                            }
+                                            correctAnswer={
+                                                mode === 'DRILL' ? grammarPrompt.answer :
+                                                mode === 'PARSE' ? grammarPrompt.answerLabel : null
+                                            }
                                         />
                                     ) : (
                                         <TypingInput 
                                             target={
-                                                mode === 'GRAMMAR' ? grammarPrompt.answer 
+                                                mode === 'DRILL' ? grammarPrompt.answer 
                                                 : (direction === 'LAT_TO_ENG' ? currentWord.eng : currentWord.lat)
                                             }
                                             mode={mode}
@@ -356,8 +384,9 @@
                                 <FeedbackCard 
                                     isCorrect={feedback === 'CORRECT'}
                                     correctAnswer={
-                                        mode === 'GRAMMAR' ? grammarPrompt.answer
-                                        : (direction === 'LAT_TO_ENG' ? currentWord.eng : currentWord.lat)
+                                        mode === 'DRILL' ? grammarPrompt.answer :
+                                        mode === 'PARSE' ? grammarPrompt.answerLabel :
+                                        (direction === 'LAT_TO_ENG' ? currentWord.eng : currentWord.lat)
                                     }
                                     userAnswer={userAnswer}
                                     onNext={nextCard}
@@ -369,30 +398,216 @@
             );
         }
 
-        // --- SUB COMPONENTS ---
+        // --- CHART ACTIVITY COMPONENT (New) ---
+
+        function ChartActivity({ word, onComplete, onExit, progress }) {
+            // Get grid structure
+            const gridData = useMemo(() => window.LatinMorph.getChartData(word.pos), [word]);
+            const correctForms = useMemo(() => window.LatinMorph.generateForms(word), [word]);
+            
+            // State for the slots: key -> value
+            // We initialize empty
+            const [slots, setSlots] = useState({});
+            
+            // Bank of available words (shuffled correct answers)
+            const [bank, setBank] = useState([]);
+            const [selectedBankItem, setSelectedBankItem] = useState(null);
+            
+            // Feedback state
+            const [isDone, setIsDone] = useState(false);
+            const [mistakes, setMistakes] = useState(0);
+
+            useEffect(() => {
+                // Initialize Bank
+                const forms = Object.values(correctForms);
+                setBank(forms.sort(() => Math.random() - 0.5));
+                setSlots({});
+                setIsDone(false);
+                setMistakes(0);
+                setSelectedBankItem(null);
+            }, [word, correctForms]);
+
+            const handleSlotClick = (r, c) => {
+                if (isDone) return;
+                const key = gridData.getKey(r, c);
+
+                // If we have a selected bank item, place it
+                if (selectedBankItem !== null) {
+                    const wordToPlace = bank[selectedBankItem];
+                    
+                    // Optimistic placement? No, let's validate on check? 
+                    // Or "Flash Card" style: User places it.
+                    // Let's allow overwrite.
+                    
+                    const newSlots = { ...slots, [key]: wordToPlace };
+                    setSlots(newSlots);
+                    
+                    // Remove from bank
+                    const newBank = [...bank];
+                    newBank.splice(selectedBankItem, 1);
+                    setBank(newBank);
+                    setSelectedBankItem(null);
+                } else if (slots[key]) {
+                    // If clicking a filled slot without selection, return to bank
+                    const wordToReturn = slots[key];
+                    const newSlots = { ...slots };
+                    delete newSlots[key];
+                    setSlots(newSlots);
+                    setBank([...bank, wordToReturn]);
+                }
+            };
+
+            const checkChart = () => {
+                // Check if all slots correct
+                let errorCount = 0;
+                let isPerfect = true;
+                
+                // For simplified checking, we just check if visually correct?
+                // No, we need to check against correctForms.
+                
+                // Note: Ambiguity (agricolae vs agricolae). 
+                // Simple approach: The map `correctForms` has specific values for specific keys.
+                // We just check string equality.
+                
+                gridData.rows.forEach(r => {
+                    gridData.cols.forEach(c => {
+                        const key = gridData.getKey(r, c);
+                        if (slots[key] !== correctForms[key]) {
+                            isPerfect = false;
+                            errorCount++;
+                        }
+                    });
+                });
+
+                if (isPerfect) {
+                    setIsDone(true);
+                } else {
+                    alert(`Not quite! ${errorCount} incorrect placements. Words returned to bank.`);
+                    // Ideally: Keep correct ones, return wrong ones.
+                    // Implementation:
+                    const newSlots = {...slots};
+                    const returnedWords = [];
+                    
+                    gridData.rows.forEach(r => {
+                        gridData.cols.forEach(c => {
+                            const key = gridData.getKey(r, c);
+                            if (slots[key] !== correctForms[key]) {
+                                if(slots[key]) returnedWords.push(slots[key]);
+                                delete newSlots[key];
+                            }
+                        });
+                    });
+                    
+                    setSlots(newSlots);
+                    setBank([...bank, ...returnedWords]);
+                    setMistakes(m => m + 1);
+                }
+            };
+
+            if (!gridData) return <div className="p-8 text-center">Charts not supported for this word type. <button onClick={onComplete}>Skip</button></div>;
+
+            return (
+                <div className="min-h-screen bg-slate-100 flex flex-col">
+                    {/* Header */}
+                    <div className="bg-white p-4 shadow-sm flex justify-between items-center sticky top-0 z-10">
+                        <button onClick={onExit} className="text-slate-400"><i className="fa-solid fa-xmark"></i></button>
+                        <h2 className="font-bold text-slate-700">Sort: {word.lat}</h2>
+                        <span className="text-sm font-bold bg-slate-200 px-2 rounded">{progress.current}/{progress.total}</span>
+                    </div>
+
+                    <div className="flex-1 p-2 flex flex-col max-w-2xl mx-auto w-full">
+                        
+                        {/* CHART GRID */}
+                        <div className="bg-white rounded-lg shadow-sm border border-slate-200 overflow-hidden mb-4">
+                            <table className="w-full text-sm sm:text-base">
+                                <thead>
+                                    <tr className="bg-slate-50 border-b border-slate-200">
+                                        <th className="p-2 text-slate-400 font-normal italic">Form</th>
+                                        {gridData.cols.map(c => <th key={c} className="p-2 text-slate-700 font-bold">{c}</th>)}
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {gridData.rows.map(r => (
+                                        <tr key={r} className="border-b border-slate-100 last:border-0">
+                                            <td className="p-2 bg-slate-50 font-bold text-slate-600 border-r border-slate-100 w-16 text-center">{r}</td>
+                                            {gridData.cols.map(c => {
+                                                const key = gridData.getKey(r, c);
+                                                const filled = slots[key];
+                                                return (
+                                                    <td key={c} 
+                                                        onClick={() => handleSlotClick(r, c)}
+                                                        className={`p-1 text-center border-l border-slate-50 cursor-pointer h-12 relative transition-colors ${filled ? 'bg-indigo-50' : 'bg-white hover:bg-slate-50'} ${selectedBankItem !== null && !filled ? 'ring-2 ring-indigo-200 inset-0' : ''}`}
+                                                    >
+                                                        {filled && (
+                                                            <span className="font-serif font-medium text-indigo-800 animate-fade-in">{filled}</span>
+                                                        )}
+                                                        {!filled && !isDone && (
+                                                            <span className="absolute inset-0 flex items-center justify-center opacity-0 hover:opacity-20 text-indigo-300">
+                                                                <i className="fa-solid fa-plus"></i>
+                                                            </span>
+                                                        )}
+                                                    </td>
+                                                )
+                                            })}
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+
+                        {/* SUCCESS MESSAGE */}
+                        {isDone && (
+                            <div className="bg-green-100 border border-green-300 text-green-800 p-4 rounded-xl text-center mb-4 animate-fade-in">
+                                <i className="fa-solid fa-check-circle text-2xl mb-2"></i>
+                                <h3 className="font-bold text-lg">Optime! Chart Complete.</h3>
+                                <button onClick={onComplete} className="mt-2 bg-green-600 text-white px-6 py-2 rounded-lg font-bold shadow hover:bg-green-700">Next Word</button>
+                            </div>
+                        )}
+
+                        {/* WORD BANK */}
+                        {!isDone && (
+                            <div className="bg-slate-200 p-4 rounded-xl flex-1 overflow-y-auto">
+                                <p className="text-xs text-slate-500 font-bold uppercase mb-2 text-center">Word Bank (Tap to Select)</p>
+                                <div className="flex flex-wrap gap-2 justify-center">
+                                    {bank.map((w, i) => (
+                                        <button 
+                                            key={i}
+                                            onClick={() => setSelectedBankItem(selectedBankItem === i ? null : i)}
+                                            className={`px-4 py-2 rounded-lg font-serif text-lg shadow-sm transition-all transform ${selectedBankItem === i ? 'bg-indigo-600 text-white scale-110 ring-2 ring-indigo-300' : 'bg-white text-slate-700 hover:bg-white/80'}`}
+                                        >
+                                            {w}
+                                        </button>
+                                    ))}
+                                    {bank.length === 0 && (
+                                        <button onClick={checkChart} className="bg-slate-800 text-white px-8 py-3 rounded-xl font-bold shadow-lg animate-bounce">
+                                            Check Answers
+                                        </button>
+                                    )}
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                </div>
+            )
+        }
+
+        // --- SHARED COMPONENTS ---
 
         function MultipleChoice({ word, fullDb, onAnswer, direction, overrideOptions, correctAnswer }) {
             const [options, setOptions] = useState([]);
 
             useEffect(() => {
                 if (overrideOptions) {
-                    // Grammar Mode Logic: Use provided distractors + correct answer
-                    // They are strings already. Shuffle them.
                     const shuffled = [...overrideOptions].sort(() => Math.random() - 0.5);
-                    
-                    // Map to object structure for consistency
                     setOptions(shuffled.map(s => ({ 
                         text: s, 
                         isCorrect: s === correctAnswer 
                     })));
                 } else {
-                    // Vocab Mode Logic
                     let similar = fullDb.filter(w => w.pos === word.pos && w.lat !== word.lat);
                     if (similar.length < 3) similar = fullDb.filter(w => w.lat !== word.lat);
                     similar = similar.sort(() => Math.random() - 0.5).slice(0, 3);
-                    
                     const choices = [...similar, word].sort(() => Math.random() - 0.5);
-                    
                     setOptions(choices.map(w => ({
                         text: direction === 'LAT_TO_ENG' ? w.eng : w.lat,
                         isCorrect: w.lat === word.lat
@@ -404,9 +619,9 @@
                 <div className="grid grid-cols-1 gap-3">
                     {options.map((opt, i) => (
                         <button key={i} onClick={() => onAnswer(opt.isCorrect)}
-                            className="bg-white hover:bg-indigo-50 border-2 border-slate-200 hover:border-indigo-300 text-slate-700 font-medium py-4 px-6 rounded-xl shadow-sm text-lg text-left transition-all active:scale-98">
-                            <span className="inline-block w-8 text-slate-300 font-bold text-sm">{String.fromCharCode(65 + i)}.</span>
-                            {opt.text}
+                            className="bg-white hover:bg-indigo-50 border-2 border-slate-200 hover:border-indigo-300 text-slate-700 font-medium py-4 px-6 rounded-xl shadow-sm text-lg text-left transition-all active:scale-98 flex items-center">
+                            <span className="inline-block w-8 text-slate-300 font-bold text-sm shrink-0">{String.fromCharCode(65 + i)}.</span>
+                            <span>{opt.text}</span>
                         </button>
                     ))}
                 </div>
@@ -427,19 +642,18 @@
                 if (!val.trim()) return;
 
                 const normalize = (str) => str.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
-                const cleanTarget = target.toLowerCase().trim();
                 const cleanInput = val.toLowerCase().trim();
-                
                 const inputHasMacrons = cleanInput !== normalize(cleanInput);
-                let isCorrect = false;
+                
+                // Allow slashes in target e.g. "house/hut"
                 const targets = target.split('/').map(t => t.trim());
+                let isCorrect = false;
 
                 if (inputHasMacrons) {
                     isCorrect = targets.some(t => t.toLowerCase() === cleanInput);
                 } else {
                     isCorrect = targets.some(t => normalize(t) === normalize(cleanInput));
                 }
-
                 onAnswer(isCorrect, val);
             };
 
@@ -448,16 +662,14 @@
             return (
                 <form onSubmit={checkAnswer} className="w-full">
                     {/* Macron Bar */}
-                    {(mode === 'GRAMMAR' || true) && (
-                        <div className="flex gap-2 mb-2 justify-center">
-                            {macrons.map(char => (
-                                <button key={char} type="button" onClick={() => insertChar(char)}
-                                    className="w-8 h-8 bg-slate-200 hover:bg-slate-300 rounded text-slate-700 font-serif font-bold transition-colors shadow-sm border border-slate-300">
-                                    {char}
-                                </button>
-                            ))}
-                        </div>
-                    )}
+                    <div className="flex gap-2 mb-2 justify-center">
+                        {macrons.map(char => (
+                            <button key={char} type="button" onClick={() => insertChar(char)}
+                                className="w-8 h-8 bg-slate-200 hover:bg-slate-300 rounded text-slate-700 font-serif font-bold transition-colors shadow-sm border border-slate-300">
+                                {char}
+                            </button>
+                        ))}
+                    </div>
                     
                     <input 
                         ref={inputRef}
