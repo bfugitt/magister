@@ -10,8 +10,8 @@
  * - conj: Verb conjugation (1, 2, 3, 3io, 4, irr = irregular).
  * - tags: Special categories (e.g., "i-stem", "plural-only", "impersonal").
  */
-
-const vocabDB = [
+window.vocabDB = [
+//const vocabDB = [
     // --- CHAPTER 1 VOCABULARY ---
     { lat: "agricola", eng: "farmer", gen: "m", pos: "n", ch: 1, decl: 1 },
     { lat: "amo", eng: "to love", gen: "x", pos: "v", ch: 1, conj: 1 },
