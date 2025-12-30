@@ -1,0 +1,550 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Magister - Latin Vocabulary Practice</title>
+    
+    <!-- React & ReactDOM -->
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    
+    <!-- Babel for JSX -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Font Awesome for Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <!-- Google Fonts: Serif for Latin, Sans for UI -->
+    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&family=Inter:wght@300;400;600&display=swap" rel="stylesheet">
+
+    <style>
+        body { font-family: 'Inter', sans-serif; background-color: #f3f4f6; }
+        .latin-font { font-family: 'Cinzel', serif; }
+        
+        /* Card Flip Animation */
+        .perspective-1000 { perspective: 1000px; }
+        .transform-style-3d { transform-style: preserve-3d; }
+        .backface-hidden { backface-visibility: hidden; }
+        .rotate-y-180 { transform: rotateY(180deg); }
+        
+        /* Custom Scrollbar for Chapter Select */
+        .chapter-grid::-webkit-scrollbar { width: 6px; }
+        .chapter-grid::-webkit-scrollbar-thumb { background-color: #cbd5e1; border-radius: 4px; }
+    </style>
+</head>
+<body>
+
+    <!-- 
+      IMPORTANT: This script tag tries to load your local file. 
+      If 'vocabDB' is defined in that file, the app uses it. 
+      If not, it falls back to the demo data defined inside React.
+    -->
+    <script src="all_latin_new.js"></script>
+
+    <div id="root"></div>
+
+    <script type="text/babel">
+
+        // --- DEMO DATA FALLBACK ---
+        // Used if your file isn't found
+        const DEMO_DB = [
+            { lat: "agricola", eng: "farmer", gen: "m", pos: "n", ch: 1, decl: 1 },
+            { lat: "amo", eng: "to love", gen: "x", pos: "v", ch: 1, conj: 1 },
+            { lat: "aqua", eng: "water", gen: "f", pos: "n", ch: 1, decl: 1 },
+            { lat: "nauta", eng: "sailor", gen: "m", pos: "n", ch: 1, decl: 1 },
+            { lat: "et", eng: "and", gen: "x", pos: "conj", ch: 1 },
+            { lat: "ambulo", eng: "to walk", gen: "x", pos: "v", ch: 1, conj: 1 },
+            { lat: "femina", eng: "woman", gen: "f", pos: "n", ch: 2, decl: 1 },
+            { lat: "patria", eng: "fatherland/country", gen: "f", pos: "n", ch: 2, decl: 1 },
+            { lat: "poeta", eng: "poet", gen: "m", pos: "n", ch: 2, decl: 1 },
+            { lat: "puer", eng: "boy", gen: "m", pos: "n", ch: 3, decl: 2 },
+            { lat: "ager", eng: "field", gen: "m", pos: "n", ch: 3, decl: 2 },
+            { lat: "vir", eng: "man", gen: "m", pos: "n", ch: 3, decl: 2 },
+            { lat: "habeo", eng: "to have/hold", gen: "x", pos: "v", ch: 4, conj: 2 },
+            { lat: "timeo", eng: "to fear", gen: "x", pos: "v", ch: 4, conj: 2 },
+        ];
+
+        const { useState, useEffect, useMemo } = React;
+
+        function App() {
+            // -- STATE --
+            const [db, setDb] = useState([]);
+            const [appState, setAppState] = useState('SETUP'); // SETUP, QUIZ, SUMMARY
+            const [selectedChapters, setSelectedChapters] = useState(new Set([1]));
+            const [quizMode, setQuizMode] = useState('MC'); // MC (Multiple Choice), TYPE
+            const [direction, setDirection] = useState('LAT_TO_ENG'); // LAT_TO_ENG, ENG_TO_LAT
+            
+            // Quiz State
+            const [queue, setQueue] = useState([]);
+            const [currentCardIndex, setCurrentCardIndex] = useState(0);
+            const [score, setScore] = useState({ correct: 0, total: 0 });
+            const [feedback, setFeedback] = useState(null); // null, 'CORRECT', 'WRONG'
+            const [userAnswer, setUserAnswer] = useState('');
+
+            // -- INITIALIZATION --
+            useEffect(() => {
+                // Check if the external file loaded (window.vocabDB), otherwise use demo
+                if (window.vocabDB && Array.isArray(window.vocabDB)) {
+                    setDb(window.vocabDB);
+                } else {
+                    console.warn("External file not found. Using Demo Data.");
+                    setDb(DEMO_DB);
+                }
+            }, []);
+
+            // -- COMPUTED HELPERS --
+            const availableChapters = useMemo(() => {
+                const chapters = new Set(db.map(item => item.ch));
+                return Array.from(chapters).sort((a, b) => a - b);
+            }, [db]);
+
+            // -- LOGIC --
+
+            const toggleChapter = (ch) => {
+                const newSet = new Set(selectedChapters);
+                if (newSet.has(ch)) newSet.delete(ch);
+                else newSet.add(ch);
+                setSelectedChapters(newSet);
+            };
+
+            const toggleAllChapters = () => {
+                if (selectedChapters.size === availableChapters.length) {
+                    setSelectedChapters(new Set());
+                } else {
+                    setSelectedChapters(new Set(availableChapters));
+                }
+            };
+
+            const startQuiz = () => {
+                if (selectedChapters.size === 0) {
+                    alert("Please select at least one chapter.");
+                    return;
+                }
+
+                // Filter words by chapter
+                let pool = db.filter(word => selectedChapters.has(word.ch));
+                
+                if (pool.length === 0) {
+                    alert("No words found for selected chapters.");
+                    return;
+                }
+
+                // Shuffle
+                pool = pool.sort(() => Math.random() - 0.5);
+
+                setQueue(pool);
+                setCurrentCardIndex(0);
+                setScore({ correct: 0, total: 0 });
+                setFeedback(null);
+                setUserAnswer('');
+                setAppState('QUIZ');
+            };
+
+            const handleAnswer = (isCorrect, inputVal = '') => {
+                const currentWord = queue[currentCardIndex];
+                
+                // If already feedback state, ignore
+                if (feedback) return;
+
+                setScore(prev => ({
+                    correct: prev.correct + (isCorrect ? 1 : 0),
+                    total: prev.total + 1
+                }));
+
+                setFeedback(isCorrect ? 'CORRECT' : 'WRONG');
+                
+                // If type mode, we might want to see what they typed even if wrong
+                if (quizMode === 'TYPE') setUserAnswer(inputVal);
+            };
+
+            const nextCard = () => {
+                if (currentCardIndex >= queue.length - 1) {
+                    setAppState('SUMMARY');
+                } else {
+                    setCurrentCardIndex(prev => prev + 1);
+                    setFeedback(null);
+                    setUserAnswer('');
+                }
+            };
+
+            const resetApp = () => {
+                setAppState('SETUP');
+                setFeedback(null);
+            };
+
+            // -- RENDERERS --
+
+            if (appState === 'SETUP') {
+                return (
+                    <div className="min-h-screen flex flex-col items-center justify-center p-4">
+                        <div className="bg-white w-full max-w-2xl rounded-2xl shadow-xl overflow-hidden">
+                            <div className="bg-slate-800 p-6 text-center text-white">
+                                <h1 className="text-3xl font-bold latin-font tracking-wider">MAGISTER</h1>
+                                <p className="text-slate-300 text-sm mt-1">Latin Vocabulary Trainer</p>
+                            </div>
+
+                            <div className="p-6 space-y-6">
+                                {/* Mode Selection */}
+                                <div className="space-y-3">
+                                    <h3 className="font-semibold text-slate-700 uppercase text-xs tracking-wider">Step 1: Choose Mode</h3>
+                                    <div className="grid grid-cols-2 gap-3">
+                                        <button 
+                                            onClick={() => setQuizMode('MC')}
+                                            className={`p-3 rounded-lg border-2 font-medium transition-all ${quizMode === 'MC' ? 'border-indigo-600 bg-indigo-50 text-indigo-700' : 'border-slate-200 text-slate-500 hover:border-slate-300'}`}
+                                        >
+                                            <i className="fa-solid fa-list-ul mr-2"></i> Multiple Choice
+                                        </button>
+                                        <button 
+                                            onClick={() => setQuizMode('TYPE')}
+                                            className={`p-3 rounded-lg border-2 font-medium transition-all ${quizMode === 'TYPE' ? 'border-indigo-600 bg-indigo-50 text-indigo-700' : 'border-slate-200 text-slate-500 hover:border-slate-300'}`}
+                                        >
+                                            <i className="fa-solid fa-keyboard mr-2"></i> Type Answer
+                                        </button>
+                                    </div>
+                                    
+                                    <div className="flex bg-slate-100 p-1 rounded-lg">
+                                        <button 
+                                            onClick={() => setDirection('LAT_TO_ENG')}
+                                            className={`flex-1 py-2 text-sm font-medium rounded-md transition-all ${direction === 'LAT_TO_ENG' ? 'bg-white shadow-sm text-slate-800' : 'text-slate-500'}`}
+                                        >
+                                            Latin ➔ English
+                                        </button>
+                                        <button 
+                                            onClick={() => setDirection('ENG_TO_LAT')}
+                                            className={`flex-1 py-2 text-sm font-medium rounded-md transition-all ${direction === 'ENG_TO_LAT' ? 'bg-white shadow-sm text-slate-800' : 'text-slate-500'}`}
+                                        >
+                                            English ➔ Latin
+                                        </button>
+                                    </div>
+                                </div>
+
+                                {/* Chapter Selection */}
+                                <div className="space-y-3">
+                                    <div className="flex justify-between items-end">
+                                        <h3 className="font-semibold text-slate-700 uppercase text-xs tracking-wider">Step 2: Select Chapters</h3>
+                                        <button onClick={toggleAllChapters} className="text-xs text-indigo-600 font-medium hover:underline">
+                                            {selectedChapters.size === availableChapters.length ? 'Deselect All' : 'Select All'}
+                                        </button>
+                                    </div>
+                                    
+                                    <div className="grid grid-cols-4 sm:grid-cols-6 gap-2 max-h-48 overflow-y-auto chapter-grid p-1">
+                                        {availableChapters.map(ch => (
+                                            <button
+                                                key={ch}
+                                                onClick={() => toggleChapter(ch)}
+                                                className={`py-2 rounded text-sm font-semibold transition-colors ${
+                                                    selectedChapters.has(ch) 
+                                                    ? 'bg-slate-800 text-white shadow-md' 
+                                                    : 'bg-slate-100 text-slate-400 hover:bg-slate-200'
+                                                }`}
+                                            >
+                                                {ch}
+                                            </button>
+                                        ))}
+                                    </div>
+                                    <p className="text-xs text-slate-400 text-center">
+                                        {selectedChapters.size} chapters selected • {db.filter(w => selectedChapters.has(w.ch)).length} words
+                                    </p>
+                                </div>
+
+                                <button 
+                                    onClick={startQuiz}
+                                    className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-4 rounded-xl shadow-lg transform transition active:scale-95 flex items-center justify-center gap-2"
+                                >
+                                    <span>Begin Practice</span> <i className="fa-solid fa-arrow-right"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                );
+            }
+
+            if (appState === 'SUMMARY') {
+                const percentage = Math.round((score.correct / score.total) * 100);
+                let message = "Keep practicing!";
+                if (percentage >= 90) message = "Optime! (Excellent)";
+                else if (percentage >= 70) message = "Bene! (Good)";
+
+                return (
+                    <div className="min-h-screen flex items-center justify-center p-4 bg-slate-800">
+                        <div className="bg-white w-full max-w-md rounded-2xl p-8 text-center space-y-6">
+                            <i className="fa-solid fa-trophy text-5xl text-yellow-400"></i>
+                            <div>
+                                <h2 className="text-3xl font-bold text-slate-800">{percentage}%</h2>
+                                <p className="text-slate-500">{score.correct} out of {score.total} correct</p>
+                            </div>
+                            <p className="text-xl latin-font font-bold text-indigo-700">{message}</p>
+                            
+                            <div className="pt-4 border-t border-slate-100">
+                                <button onClick={resetApp} className="text-slate-600 hover:text-slate-900 font-medium">
+                                    <i className="fa-solid fa-rotate-left mr-2"></i> Practice Again
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                )
+            }
+
+            // --- QUIZ RENDER ---
+            
+            const currentWord = queue[currentCardIndex];
+            
+            return (
+                <div className="min-h-screen flex flex-col bg-slate-100">
+                    {/* Header */}
+                    <div className="bg-white shadow-sm px-4 py-3 flex justify-between items-center z-10">
+                        <button onClick={resetApp} className="text-slate-400 hover:text-red-500 transition-colors">
+                            <i className="fa-solid fa-xmark text-xl"></i>
+                        </button>
+                        <div className="flex flex-col items-center">
+                            <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">Chapter {currentWord.ch}</span>
+                            <div className="flex gap-1">
+                                {[...Array(queue.length)].map((_, i) => (
+                                    <div key={i} className={`h-1 w-1 rounded-full ${i === currentCardIndex ? 'bg-indigo-600 scale-150' : i < currentCardIndex ? 'bg-slate-300' : 'bg-slate-200'}`}></div>
+                                )).slice(Math.max(0, currentCardIndex - 3), Math.min(queue.length, currentCardIndex + 4))}
+                            </div>
+                        </div>
+                        <div className="text-sm font-bold text-indigo-600 bg-indigo-50 px-3 py-1 rounded-full">
+                            {score.correct}/{score.total}
+                        </div>
+                    </div>
+
+                    <div className="flex-1 flex flex-col items-center justify-center p-4 w-full max-w-lg mx-auto pb-20">
+                        
+                        {/* THE CARD */}
+                        <div className="w-full relative mb-6">
+                            <QuizCard 
+                                word={currentWord} 
+                                feedback={feedback} 
+                                direction={direction}
+                            />
+                        </div>
+
+                        {/* CONTROLS AREA */}
+                        <div className="w-full">
+                            {!feedback ? (
+                                // INPUT STATE
+                                <div className="animate-fade-in-up">
+                                    {quizMode === 'MC' ? (
+                                        <MultipleChoice 
+                                            word={currentWord} 
+                                            fullDb={db} 
+                                            onAnswer={handleAnswer} 
+                                            direction={direction}
+                                        />
+                                    ) : (
+                                        <TypingInput 
+                                            word={currentWord} 
+                                            onAnswer={handleAnswer}
+                                            direction={direction}
+                                        />
+                                    )}
+                                </div>
+                            ) : (
+                                // FEEDBACK STATE
+                                <div className={`rounded-xl p-4 shadow-lg border-2 animate-bounce-in ${feedback === 'CORRECT' ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'}`}>
+                                    <div className="flex items-center gap-3 mb-2">
+                                        <div className={`h-10 w-10 rounded-full flex items-center justify-center text-white text-lg ${feedback === 'CORRECT' ? 'bg-green-500' : 'bg-red-500'}`}>
+                                            <i className={`fa-solid ${feedback === 'CORRECT' ? 'fa-check' : 'fa-times'}`}></i>
+                                        </div>
+                                        <div>
+                                            <h3 className={`font-bold ${feedback === 'CORRECT' ? 'text-green-800' : 'text-red-800'}`}>
+                                                {feedback === 'CORRECT' ? 'Optime!' : 'Eheu!'}
+                                            </h3>
+                                            <p className="text-sm text-slate-600">
+                                                {feedback === 'WRONG' && (
+                                                   <span>Correct: <strong>{direction === 'LAT_TO_ENG' ? currentWord.eng : currentWord.lat}</strong></span> 
+                                                )}
+                                            </p>
+                                        </div>
+                                    </div>
+                                    <button 
+                                        onClick={nextCard}
+                                        autoFocus
+                                        className={`w-full py-3 rounded-lg font-bold text-white shadow-md transition-transform active:scale-95 ${feedback === 'CORRECT' ? 'bg-green-600 hover:bg-green-700' : 'bg-red-600 hover:bg-red-700'}`}
+                                    >
+                                        Next Word <i className="fa-solid fa-arrow-right ml-1"></i>
+                                    </button>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            );
+        }
+
+        // --- SUB COMPONENTS ---
+
+        function QuizCard({ word, feedback, direction }) {
+            const showDetails = feedback !== null;
+            
+            // Helper to expand codes to full text
+            const getGrammarTags = (w) => {
+                let tags = [];
+                if (w.pos === 'n') tags.push('Noun');
+                if (w.pos === 'v') tags.push('Verb');
+                if (w.pos === 'adj') tags.push('Adjective');
+                if (w.pos === 'conj') tags.push('Conjunction');
+                if (w.pos === 'prep') tags.push('Preposition');
+                if (w.gen === 'm') tags.push('Masc');
+                if (w.gen === 'f') tags.push('Fem');
+                if (w.gen === 'n') tags.push('Neut');
+                if (w.decl) tags.push(`${w.decl}${getOrdinal(w.decl)} Decl.`);
+                if (w.conj) tags.push(`${w.conj}${getOrdinal(w.conj)} Conj.`);
+                return tags;
+            };
+
+            const getOrdinal = (n) => {
+                if (n===1) return 'st';
+                if (n===2) return 'nd';
+                if (n===3) return 'rd';
+                return 'th';
+            }
+
+            const mainText = direction === 'LAT_TO_ENG' ? word.lat : word.eng;
+            const subText = direction === 'LAT_TO_ENG' ? word.eng : word.lat;
+
+            return (
+                <div className="bg-white rounded-2xl shadow-xl border border-slate-200 overflow-hidden min-h-[200px] flex flex-col items-center justify-center text-center p-6 transition-all duration-300 relative">
+                    
+                    {/* Background Grammar Hint (Watermark style) */}
+                    <div className="absolute top-0 left-0 w-full h-1 bg-indigo-500"></div>
+                    
+                    <h2 className="text-4xl font-bold text-slate-800 latin-font mb-2">{mainText}</h2>
+                    
+                    {/* Reveal Answer Area */}
+                    <div className={`transition-all duration-500 overflow-hidden ${showDetails ? 'max-h-40 opacity-100 mt-4' : 'max-h-0 opacity-0'}`}>
+                        <p className="text-xl text-indigo-600 font-medium mb-3">{subText}</p>
+                        
+                        <div className="flex flex-wrap justify-center gap-2">
+                            {getGrammarTags(word).map((tag, i) => (
+                                <span key={i} className="text-xs bg-slate-100 text-slate-500 px-2 py-1 rounded border border-slate-200 uppercase tracking-wide font-semibold">
+                                    {tag}
+                                </span>
+                            ))}
+                        </div>
+                        {word.tags && (
+                             <div className="flex justify-center gap-1 mt-2">
+                                {word.tags.map(t => <span key={t} className="text-[10px] text-amber-600 bg-amber-50 px-1 rounded">{t}</span>)}
+                             </div>
+                        )}
+                    </div>
+
+                    {!showDetails && (
+                        <p className="text-slate-400 text-sm mt-4 italic">
+                            {direction === 'LAT_TO_ENG' ? 'Translate to English' : 'Translate to Latin'}
+                        </p>
+                    )}
+                </div>
+            )
+        }
+
+        function MultipleChoice({ word, fullDb, onAnswer, direction }) {
+            const [options, setOptions] = useState([]);
+
+            useEffect(() => {
+                // Generate distractors
+                // 1. Filter DB for words with same Part of Speech (POS) if possible
+                let similarWords = fullDb.filter(w => w.pos === word.pos && w.lat !== word.lat);
+                
+                // If not enough similar words, just grab any distinct word
+                if (similarWords.length < 3) {
+                    similarWords = fullDb.filter(w => w.lat !== word.lat);
+                }
+
+                // Shuffle similar words and take 3
+                similarWords = similarWords.sort(() => Math.random() - 0.5).slice(0, 3);
+                
+                // Add correct answer
+                const choices = [...similarWords, word];
+                
+                // Shuffle final options
+                setOptions(choices.sort(() => Math.random() - 0.5));
+            }, [word, fullDb]);
+
+            const handleClick = (choice) => {
+                const isCorrect = choice.lat === word.lat;
+                onAnswer(isCorrect);
+            };
+
+            return (
+                <div className="grid grid-cols-1 gap-3">
+                    {options.map((opt, i) => (
+                        <button 
+                            key={i}
+                            onClick={() => handleClick(opt)}
+                            className="bg-white hover:bg-indigo-50 border-2 border-slate-200 hover:border-indigo-300 text-slate-700 hover:text-indigo-800 font-medium py-4 px-6 rounded-xl shadow-sm transition-all text-lg text-left active:scale-98"
+                        >
+                            <span className="inline-block w-8 text-slate-300 font-bold">{String.fromCharCode(65 + i)}.</span>
+                            {direction === 'LAT_TO_ENG' ? opt.eng : opt.lat}
+                        </button>
+                    ))}
+                </div>
+            );
+        }
+
+        function TypingInput({ word, onAnswer, direction }) {
+            const [val, setVal] = useState('');
+
+            const handleSubmit = (e) => {
+                e.preventDefault();
+                if (!val.trim()) return;
+
+                const target = direction === 'LAT_TO_ENG' ? word.eng : word.lat;
+                
+                // Normalization for comparison:
+                // 1. Lowercase
+                // 2. Remove multiple definitions (everything after '/')
+                // 3. Trim whitespace
+                
+                // Note on Macrons: For beginners, typing macrons is hard. 
+                // A robust app might normalize accents (remove macrons) for checking.
+                // Simple normalizer:
+                const clean = (str) => str.toLowerCase().split('/')[0].trim();
+                const cleanInput = val.toLowerCase().trim();
+                
+                // Ideally we'd strip macrons here for the check, but for now simple match
+                // You can add a stripMacrons utility later
+                
+                // Check against all slash-separated options
+                const acceptableAnswers = target.split('/').map(s => s.trim().toLowerCase());
+                
+                // Very basic check - checks if input matches any of the slash options
+                const isCorrect = acceptableAnswers.some(ans => ans === cleanInput || cleanInput.includes(ans)); // lax checking
+
+                onAnswer(isCorrect, val);
+            };
+
+            return (
+                <form onSubmit={handleSubmit} className="w-full">
+                    <input 
+                        type="text" 
+                        autoFocus
+                        value={val}
+                        onChange={(e) => setVal(e.target.value)}
+                        placeholder="Type answer here..."
+                        className="w-full p-4 text-lg border-2 border-slate-300 rounded-xl focus:border-indigo-500 focus:outline-none shadow-inner mb-4 bg-white"
+                    />
+                    <button 
+                        type="submit"
+                        className="w-full bg-slate-800 text-white font-bold py-3 rounded-xl shadow-lg hover:bg-slate-700 transition-transform active:scale-95"
+                    >
+                        Check Answer
+                    </button>
+                    <p className="text-xs text-center text-slate-400 mt-2">
+                        Separate multiple meanings with slash (/) not required.
+                    </p>
+                </form>
+            );
+        }
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+
+    </script>
+</body>
+</html>
