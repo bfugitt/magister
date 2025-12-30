@@ -18,85 +18,74 @@
     <!-- Font Awesome for Icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 
-    <!-- Google Fonts: Serif for Latin, Sans for UI -->
+    <!-- Google Fonts -->
     <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&family=Inter:wght@300;400;600&display=swap" rel="stylesheet">
 
     <style>
         body { font-family: 'Inter', sans-serif; background-color: #f3f4f6; }
         .latin-font { font-family: 'Cinzel', serif; }
-        
-        /* Card Flip Animation */
-        .perspective-1000 { perspective: 1000px; }
-        .transform-style-3d { transform-style: preserve-3d; }
-        .backface-hidden { backface-visibility: hidden; }
-        .rotate-y-180 { transform: rotateY(180deg); }
-        
-        /* Custom Scrollbar for Chapter Select */
         .chapter-grid::-webkit-scrollbar { width: 6px; }
         .chapter-grid::-webkit-scrollbar-thumb { background-color: #cbd5e1; border-radius: 4px; }
+        
+        /* Animation Classes */
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        .animate-fade-in { animation: fadeIn 0.3s ease-out forwards; }
     </style>
 </head>
 <body>
 
-    <!-- 
-      IMPORTANT: This script tag tries to load your local file. 
-      If 'vocabDB' is defined in that file, the app uses it. 
-      If not, it falls back to the demo data defined inside React.
-    -->
+    <!-- Load Data Files -->
     <script src="all_latin_new.js"></script>
+    <script src="latin_morphology.js"></script>
 
     <div id="root"></div>
 
     <script type="text/babel">
 
-        // --- DEMO DATA FALLBACK ---
-        // Used if your file isn't found
+        // --- DEMO DATA ---
         const DEMO_DB = [
             { lat: "agricola", eng: "farmer", gen: "m", pos: "n", ch: 1, decl: 1 },
             { lat: "amo", eng: "to love", gen: "x", pos: "v", ch: 1, conj: 1 },
-            { lat: "aqua", eng: "water", gen: "f", pos: "n", ch: 1, decl: 1 },
             { lat: "nauta", eng: "sailor", gen: "m", pos: "n", ch: 1, decl: 1 },
-            { lat: "et", eng: "and", gen: "x", pos: "conj", ch: 1 },
-            { lat: "ambulo", eng: "to walk", gen: "x", pos: "v", ch: 1, conj: 1 },
-            { lat: "femina", eng: "woman", gen: "f", pos: "n", ch: 2, decl: 1 },
-            { lat: "patria", eng: "fatherland/country", gen: "f", pos: "n", ch: 2, decl: 1 },
-            { lat: "poeta", eng: "poet", gen: "m", pos: "n", ch: 2, decl: 1 },
             { lat: "puer", eng: "boy", gen: "m", pos: "n", ch: 3, decl: 2 },
             { lat: "ager", eng: "field", gen: "m", pos: "n", ch: 3, decl: 2 },
-            { lat: "vir", eng: "man", gen: "m", pos: "n", ch: 3, decl: 2 },
-            { lat: "habeo", eng: "to have/hold", gen: "x", pos: "v", ch: 4, conj: 2 },
-            { lat: "timeo", eng: "to fear", gen: "x", pos: "v", ch: 4, conj: 2 },
+            { lat: "bellum", eng: "war", gen: "n", pos: "n", ch: 4, decl: 2 },
+            { lat: "habeo", eng: "to have", gen: "x", pos: "v", ch: 2, conj: 2 },
+            { lat: "duco", eng: "to lead", gen: "x", pos: "v", ch: 8, conj: 3 },
+            { lat: "audio", eng: "to hear", gen: "x", pos: "v", ch: 10, conj: 4 },
         ];
 
-        const { useState, useEffect, useMemo } = React;
+        const { useState, useEffect, useMemo, useRef } = React;
 
         function App() {
             // -- STATE --
             const [db, setDb] = useState([]);
             const [appState, setAppState] = useState('SETUP'); // SETUP, QUIZ, SUMMARY
             const [selectedChapters, setSelectedChapters] = useState(new Set([1]));
-            const [quizMode, setQuizMode] = useState('MC'); // MC (Multiple Choice), TYPE
-            const [direction, setDirection] = useState('LAT_TO_ENG'); // LAT_TO_ENG, ENG_TO_LAT
             
+            // Settings
+            const [mode, setMode] = useState('VOCAB'); // VOCAB, GRAMMAR
+            const [vocabMode, setVocabMode] = useState('MC'); // MC, TYPE
+            const [direction, setDirection] = useState('LAT_TO_ENG'); 
+
             // Quiz State
             const [queue, setQueue] = useState([]);
             const [currentCardIndex, setCurrentCardIndex] = useState(0);
             const [score, setScore] = useState({ correct: 0, total: 0 });
             const [feedback, setFeedback] = useState(null); // null, 'CORRECT', 'WRONG'
             const [userAnswer, setUserAnswer] = useState('');
+            const [grammarPrompt, setGrammarPrompt] = useState(null); // { label: "Gen Sg", answer: "agricolae" }
 
-            // -- INITIALIZATION --
+            // -- INIT --
             useEffect(() => {
-                // Check if the external file loaded (window.vocabDB), otherwise use demo
                 if (window.vocabDB && Array.isArray(window.vocabDB)) {
                     setDb(window.vocabDB);
                 } else {
-                    console.warn("External file not found. Using Demo Data.");
                     setDb(DEMO_DB);
                 }
             }, []);
 
-            // -- COMPUTED HELPERS --
+            // -- HELPERS --
             const availableChapters = useMemo(() => {
                 const chapters = new Set(db.map(item => item.ch));
                 return Array.from(chapters).sort((a, b) => a - b);
@@ -112,29 +101,45 @@
             };
 
             const toggleAllChapters = () => {
-                if (selectedChapters.size === availableChapters.length) {
-                    setSelectedChapters(new Set());
-                } else {
-                    setSelectedChapters(new Set(availableChapters));
-                }
+                if (selectedChapters.size === availableChapters.length) setSelectedChapters(new Set());
+                else setSelectedChapters(new Set(availableChapters));
+            };
+
+            const generateGrammarQuestion = (word) => {
+                // Use the Morphology Engine
+                if (!window.LatinMorph) return null;
+                const forms = window.LatinMorph.generateForms(word);
+                if (!forms) return null;
+
+                // Pick a random form
+                const keys = Object.keys(forms);
+                const randomKey = keys[Math.floor(Math.random() * keys.length)];
+                return {
+                    label: randomKey,
+                    answer: forms[randomKey]
+                };
             };
 
             const startQuiz = () => {
-                if (selectedChapters.size === 0) {
-                    alert("Please select at least one chapter.");
-                    return;
-                }
+                if (selectedChapters.size === 0) return alert("Select at least one chapter.");
 
-                // Filter words by chapter
                 let pool = db.filter(word => selectedChapters.has(word.ch));
                 
-                if (pool.length === 0) {
-                    alert("No words found for selected chapters.");
-                    return;
+                // If Grammar Mode, filter out words we can't conjugate/decline yet
+                if (mode === 'GRAMMAR') {
+                    pool = pool.filter(w => window.LatinMorph && window.LatinMorph.generateForms(w) !== null);
                 }
+
+                if (pool.length === 0) return alert("No suitable words found for these chapters.");
 
                 // Shuffle
                 pool = pool.sort(() => Math.random() - 0.5);
+
+                // Prepare first question
+                if (mode === 'GRAMMAR') {
+                    const firstQ = generateGrammarQuestion(pool[0]);
+                    setGrammarPrompt(firstQ);
+                }
 
                 setQueue(pool);
                 setCurrentCardIndex(0);
@@ -145,29 +150,24 @@
             };
 
             const handleAnswer = (isCorrect, inputVal = '') => {
-                const currentWord = queue[currentCardIndex];
-                
-                // If already feedback state, ignore
                 if (feedback) return;
-
-                setScore(prev => ({
-                    correct: prev.correct + (isCorrect ? 1 : 0),
-                    total: prev.total + 1
-                }));
-
+                setScore(prev => ({ correct: prev.correct + (isCorrect ? 1 : 0), total: prev.total + 1 }));
                 setFeedback(isCorrect ? 'CORRECT' : 'WRONG');
-                
-                // If type mode, we might want to see what they typed even if wrong
-                if (quizMode === 'TYPE') setUserAnswer(inputVal);
+                if (inputVal) setUserAnswer(inputVal);
             };
 
             const nextCard = () => {
                 if (currentCardIndex >= queue.length - 1) {
                     setAppState('SUMMARY');
                 } else {
-                    setCurrentCardIndex(prev => prev + 1);
+                    const nextIdx = currentCardIndex + 1;
+                    setCurrentCardIndex(nextIdx);
                     setFeedback(null);
                     setUserAnswer('');
+                    
+                    if (mode === 'GRAMMAR') {
+                        setGrammarPrompt(generateGrammarQuestion(queue[nextIdx]));
+                    }
                 }
             };
 
@@ -182,80 +182,72 @@
                 return (
                     <div className="min-h-screen flex flex-col items-center justify-center p-4">
                         <div className="bg-white w-full max-w-2xl rounded-2xl shadow-xl overflow-hidden">
-                            <div className="bg-slate-800 p-6 text-center text-white">
-                                <h1 className="text-3xl font-bold latin-font tracking-wider">MAGISTER</h1>
-                                <p className="text-slate-300 text-sm mt-1">Latin Vocabulary Trainer</p>
+                            <div className="bg-slate-800 p-6 text-center text-white relative overflow-hidden">
+                                <div className="relative z-10">
+                                    <h1 className="text-3xl font-bold latin-font tracking-wider">MAGISTER</h1>
+                                    <p className="text-slate-300 text-sm mt-1">Latin Practice Engine</p>
+                                </div>
+                                <i className="fa-solid fa-building-columns absolute -bottom-4 -right-4 text-8xl text-slate-700 opacity-50"></i>
                             </div>
 
-                            <div className="p-6 space-y-6">
-                                {/* Mode Selection */}
-                                <div className="space-y-3">
-                                    <h3 className="font-semibold text-slate-700 uppercase text-xs tracking-wider">Step 1: Choose Mode</h3>
-                                    <div className="grid grid-cols-2 gap-3">
-                                        <button 
-                                            onClick={() => setQuizMode('MC')}
-                                            className={`p-3 rounded-lg border-2 font-medium transition-all ${quizMode === 'MC' ? 'border-indigo-600 bg-indigo-50 text-indigo-700' : 'border-slate-200 text-slate-500 hover:border-slate-300'}`}
-                                        >
-                                            <i className="fa-solid fa-list-ul mr-2"></i> Multiple Choice
+                            <div className="p-6 space-y-8">
+                                {/* MAIN MODE SWITCH */}
+                                <div>
+                                    <h3 className="font-semibold text-slate-700 uppercase text-xs tracking-wider mb-2">Step 1: Choose Activity</h3>
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <button onClick={() => setMode('VOCAB')}
+                                            className={`p-4 rounded-xl border-2 transition-all flex flex-col items-center gap-2 ${mode === 'VOCAB' ? 'border-indigo-600 bg-indigo-50 text-indigo-700' : 'border-slate-200 text-slate-500 hover:bg-slate-50'}`}>
+                                            <i className="fa-solid fa-book-open text-2xl"></i>
+                                            <span className="font-bold">Vocabulary</span>
                                         </button>
-                                        <button 
-                                            onClick={() => setQuizMode('TYPE')}
-                                            className={`p-3 rounded-lg border-2 font-medium transition-all ${quizMode === 'TYPE' ? 'border-indigo-600 bg-indigo-50 text-indigo-700' : 'border-slate-200 text-slate-500 hover:border-slate-300'}`}
-                                        >
-                                            <i className="fa-solid fa-keyboard mr-2"></i> Type Answer
-                                        </button>
-                                    </div>
-                                    
-                                    <div className="flex bg-slate-100 p-1 rounded-lg">
-                                        <button 
-                                            onClick={() => setDirection('LAT_TO_ENG')}
-                                            className={`flex-1 py-2 text-sm font-medium rounded-md transition-all ${direction === 'LAT_TO_ENG' ? 'bg-white shadow-sm text-slate-800' : 'text-slate-500'}`}
-                                        >
-                                            Latin ➔ English
-                                        </button>
-                                        <button 
-                                            onClick={() => setDirection('ENG_TO_LAT')}
-                                            className={`flex-1 py-2 text-sm font-medium rounded-md transition-all ${direction === 'ENG_TO_LAT' ? 'bg-white shadow-sm text-slate-800' : 'text-slate-500'}`}
-                                        >
-                                            English ➔ Latin
+                                        <button onClick={() => setMode('GRAMMAR')}
+                                            className={`p-4 rounded-xl border-2 transition-all flex flex-col items-center gap-2 ${mode === 'GRAMMAR' ? 'border-indigo-600 bg-indigo-50 text-indigo-700' : 'border-slate-200 text-slate-500 hover:bg-slate-50'}`}>
+                                            <i className="fa-solid fa-shapes text-2xl"></i>
+                                            <span className="font-bold">Grammar</span>
                                         </button>
                                     </div>
                                 </div>
 
-                                {/* Chapter Selection */}
-                                <div className="space-y-3">
-                                    <div className="flex justify-between items-end">
+                                {/* SETTINGS AREA */}
+                                <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 space-y-4">
+                                    {mode === 'VOCAB' && (
+                                        <>
+                                            <div className="flex gap-2 bg-white p-1 rounded-lg border border-slate-200">
+                                                <button onClick={() => setVocabMode('MC')} className={`flex-1 py-2 text-sm font-semibold rounded ${vocabMode === 'MC' ? 'bg-slate-800 text-white shadow' : 'text-slate-500 hover:bg-slate-100'}`}>Multiple Choice</button>
+                                                <button onClick={() => setVocabMode('TYPE')} className={`flex-1 py-2 text-sm font-semibold rounded ${vocabMode === 'TYPE' ? 'bg-slate-800 text-white shadow' : 'text-slate-500 hover:bg-slate-100'}`}>Type Answer</button>
+                                            </div>
+                                            <div className="flex gap-2 bg-white p-1 rounded-lg border border-slate-200">
+                                                <button onClick={() => setDirection('LAT_TO_ENG')} className={`flex-1 py-2 text-sm font-semibold rounded ${direction === 'LAT_TO_ENG' ? 'bg-indigo-100 text-indigo-800' : 'text-slate-500'}`}>Latin ➔ Eng</button>
+                                                <button onClick={() => setDirection('ENG_TO_LAT')} className={`flex-1 py-2 text-sm font-semibold rounded ${direction === 'ENG_TO_LAT' ? 'bg-indigo-100 text-indigo-800' : 'text-slate-500'}`}>Eng ➔ Latin</button>
+                                            </div>
+                                        </>
+                                    )}
+                                    {mode === 'GRAMMAR' && (
+                                        <div className="text-sm text-slate-600 italic text-center">
+                                            <i className="fa-solid fa-circle-info mr-2"></i>
+                                            Drills declensions (Nouns) and conjugations (Verbs) for selected chapters.
+                                        </div>
+                                    )}
+                                </div>
+
+                                {/* CHAPTERS */}
+                                <div>
+                                    <div className="flex justify-between items-end mb-2">
                                         <h3 className="font-semibold text-slate-700 uppercase text-xs tracking-wider">Step 2: Select Chapters</h3>
-                                        <button onClick={toggleAllChapters} className="text-xs text-indigo-600 font-medium hover:underline">
-                                            {selectedChapters.size === availableChapters.length ? 'Deselect All' : 'Select All'}
-                                        </button>
+                                        <button onClick={toggleAllChapters} className="text-xs text-indigo-600 font-bold hover:underline">Toggle All</button>
                                     </div>
-                                    
-                                    <div className="grid grid-cols-4 sm:grid-cols-6 gap-2 max-h-48 overflow-y-auto chapter-grid p-1">
+                                    <div className="grid grid-cols-5 sm:grid-cols-8 gap-2 max-h-32 overflow-y-auto chapter-grid p-1">
                                         {availableChapters.map(ch => (
-                                            <button
-                                                key={ch}
-                                                onClick={() => toggleChapter(ch)}
-                                                className={`py-2 rounded text-sm font-semibold transition-colors ${
-                                                    selectedChapters.has(ch) 
-                                                    ? 'bg-slate-800 text-white shadow-md' 
-                                                    : 'bg-slate-100 text-slate-400 hover:bg-slate-200'
-                                                }`}
-                                            >
+                                            <button key={ch} onClick={() => toggleChapter(ch)}
+                                                className={`h-8 rounded text-sm font-bold transition-all ${selectedChapters.has(ch) ? 'bg-indigo-600 text-white' : 'bg-slate-200 text-slate-500'}`}>
                                                 {ch}
                                             </button>
                                         ))}
                                     </div>
-                                    <p className="text-xs text-slate-400 text-center">
-                                        {selectedChapters.size} chapters selected • {db.filter(w => selectedChapters.has(w.ch)).length} words
-                                    </p>
                                 </div>
 
-                                <button 
-                                    onClick={startQuiz}
-                                    className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-4 rounded-xl shadow-lg transform transition active:scale-95 flex items-center justify-center gap-2"
-                                >
-                                    <span>Begin Practice</span> <i className="fa-solid fa-arrow-right"></i>
+                                <button onClick={startQuiz} className="w-full bg-slate-900 hover:bg-slate-800 text-white font-bold py-4 rounded-xl shadow-lg transform transition active:scale-95 text-lg">
+                                    Start Practice
                                 </button>
                             </div>
                         </div>
@@ -264,72 +256,78 @@
             }
 
             if (appState === 'SUMMARY') {
-                const percentage = Math.round((score.correct / score.total) * 100);
-                let message = "Keep practicing!";
-                if (percentage >= 90) message = "Optime! (Excellent)";
-                else if (percentage >= 70) message = "Bene! (Good)";
-
+                const pct = Math.round((score.correct / score.total) * 100) || 0;
                 return (
                     <div className="min-h-screen flex items-center justify-center p-4 bg-slate-800">
-                        <div className="bg-white w-full max-w-md rounded-2xl p-8 text-center space-y-6">
-                            <i className="fa-solid fa-trophy text-5xl text-yellow-400"></i>
+                        <div className="bg-white w-full max-w-md rounded-2xl p-8 text-center space-y-6 animate-fade-in">
+                            <div className="inline-block p-4 rounded-full bg-yellow-100 mb-2">
+                                <i className="fa-solid fa-star text-4xl text-yellow-500"></i>
+                            </div>
                             <div>
-                                <h2 className="text-3xl font-bold text-slate-800">{percentage}%</h2>
-                                <p className="text-slate-500">{score.correct} out of {score.total} correct</p>
+                                <h2 className="text-4xl font-bold text-slate-900">{pct}%</h2>
+                                <p className="text-slate-500 font-medium">Score: {score.correct} / {score.total}</p>
                             </div>
-                            <p className="text-xl latin-font font-bold text-indigo-700">{message}</p>
-                            
-                            <div className="pt-4 border-t border-slate-100">
-                                <button onClick={resetApp} className="text-slate-600 hover:text-slate-900 font-medium">
-                                    <i className="fa-solid fa-rotate-left mr-2"></i> Practice Again
-                                </button>
-                            </div>
+                            <button onClick={resetApp} className="w-full py-3 rounded-lg border-2 border-slate-200 font-bold text-slate-600 hover:border-slate-800 hover:text-slate-800 transition-all">
+                                Practice Again
+                            </button>
                         </div>
                     </div>
                 )
             }
 
-            // --- QUIZ RENDER ---
-            
+            // --- QUIZ VIEW ---
             const currentWord = queue[currentCardIndex];
             
             return (
                 <div className="min-h-screen flex flex-col bg-slate-100">
-                    {/* Header */}
-                    <div className="bg-white shadow-sm px-4 py-3 flex justify-between items-center z-10">
-                        <button onClick={resetApp} className="text-slate-400 hover:text-red-500 transition-colors">
-                            <i className="fa-solid fa-xmark text-xl"></i>
-                        </button>
+                    {/* Top Bar */}
+                    <div className="bg-white px-4 py-3 flex justify-between items-center shadow-sm z-20 sticky top-0">
+                        <button onClick={resetApp} className="text-slate-400 hover:text-red-500"><i className="fa-solid fa-xmark text-xl"></i></button>
                         <div className="flex flex-col items-center">
-                            <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">Chapter {currentWord.ch}</span>
-                            <div className="flex gap-1">
-                                {[...Array(queue.length)].map((_, i) => (
-                                    <div key={i} className={`h-1 w-1 rounded-full ${i === currentCardIndex ? 'bg-indigo-600 scale-150' : i < currentCardIndex ? 'bg-slate-300' : 'bg-slate-200'}`}></div>
-                                )).slice(Math.max(0, currentCardIndex - 3), Math.min(queue.length, currentCardIndex + 4))}
+                            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+                                {mode === 'GRAMMAR' ? 'Morphology Drill' : `Chapter ${currentWord.ch}`}
+                            </span>
+                            <div className="w-32 h-1.5 bg-slate-200 rounded-full mt-1 overflow-hidden">
+                                <div className="h-full bg-indigo-500 transition-all duration-300" style={{width: `${((currentCardIndex)/queue.length)*100}%`}}></div>
                             </div>
                         </div>
-                        <div className="text-sm font-bold text-indigo-600 bg-indigo-50 px-3 py-1 rounded-full">
-                            {score.correct}/{score.total}
-                        </div>
+                        <div className="text-sm font-bold text-indigo-700 bg-indigo-50 px-3 py-1 rounded-full">{score.correct}/{score.total}</div>
                     </div>
 
-                    <div className="flex-1 flex flex-col items-center justify-center p-4 w-full max-w-lg mx-auto pb-20">
+                    <div className="flex-1 flex flex-col items-center p-4 w-full max-w-xl mx-auto pb-24">
                         
                         {/* THE CARD */}
-                        <div className="w-full relative mb-6">
-                            <QuizCard 
-                                word={currentWord} 
-                                feedback={feedback} 
-                                direction={direction}
-                            />
+                        <div className="w-full mb-6">
+                            <div className="bg-white rounded-2xl shadow-xl border border-slate-200 overflow-hidden min-h-[180px] flex flex-col items-center justify-center text-center p-8 relative">
+                                {/* Prompt */}
+                                {mode === 'GRAMMAR' && (
+                                    <span className="bg-amber-100 text-amber-800 text-xs font-bold px-2 py-1 rounded mb-3 uppercase tracking-wide">
+                                        {grammarPrompt.label}
+                                    </span>
+                                )}
+                                
+                                <h2 className="text-4xl font-bold text-slate-800 latin-font mb-2">
+                                    {mode === 'VOCAB' 
+                                        ? (direction === 'LAT_TO_ENG' ? currentWord.lat : currentWord.eng)
+                                        : currentWord.lat
+                                    }
+                                </h2>
+
+                                {/* Extra Info (Part of Speech etc) */}
+                                <div className="text-slate-400 text-sm font-medium italic mt-2">
+                                    {mode === 'VOCAB' 
+                                        ? (direction === 'LAT_TO_ENG' ? 'Translate to English' : 'Translate to Latin')
+                                        : `${currentWord.eng} (${currentWord.pos === 'n' ? 'Noun' : 'Verb'})`
+                                    }
+                                </div>
+                            </div>
                         </div>
 
-                        {/* CONTROLS AREA */}
-                        <div className="w-full">
+                        {/* INTERACTION AREA */}
+                        <div className="w-full animate-fade-in">
                             {!feedback ? (
-                                // INPUT STATE
-                                <div className="animate-fade-in-up">
-                                    {quizMode === 'MC' ? (
+                                <>
+                                    {mode === 'VOCAB' && vocabMode === 'MC' ? (
                                         <MultipleChoice 
                                             word={currentWord} 
                                             fullDb={db} 
@@ -338,38 +336,25 @@
                                         />
                                     ) : (
                                         <TypingInput 
-                                            word={currentWord} 
+                                            target={
+                                                mode === 'GRAMMAR' ? grammarPrompt.answer 
+                                                : (direction === 'LAT_TO_ENG' ? currentWord.eng : currentWord.lat)
+                                            }
+                                            mode={mode}
                                             onAnswer={handleAnswer}
-                                            direction={direction}
                                         />
                                     )}
-                                </div>
+                                </>
                             ) : (
-                                // FEEDBACK STATE
-                                <div className={`rounded-xl p-4 shadow-lg border-2 animate-bounce-in ${feedback === 'CORRECT' ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'}`}>
-                                    <div className="flex items-center gap-3 mb-2">
-                                        <div className={`h-10 w-10 rounded-full flex items-center justify-center text-white text-lg ${feedback === 'CORRECT' ? 'bg-green-500' : 'bg-red-500'}`}>
-                                            <i className={`fa-solid ${feedback === 'CORRECT' ? 'fa-check' : 'fa-times'}`}></i>
-                                        </div>
-                                        <div>
-                                            <h3 className={`font-bold ${feedback === 'CORRECT' ? 'text-green-800' : 'text-red-800'}`}>
-                                                {feedback === 'CORRECT' ? 'Optime!' : 'Eheu!'}
-                                            </h3>
-                                            <p className="text-sm text-slate-600">
-                                                {feedback === 'WRONG' && (
-                                                   <span>Correct: <strong>{direction === 'LAT_TO_ENG' ? currentWord.eng : currentWord.lat}</strong></span> 
-                                                )}
-                                            </p>
-                                        </div>
-                                    </div>
-                                    <button 
-                                        onClick={nextCard}
-                                        autoFocus
-                                        className={`w-full py-3 rounded-lg font-bold text-white shadow-md transition-transform active:scale-95 ${feedback === 'CORRECT' ? 'bg-green-600 hover:bg-green-700' : 'bg-red-600 hover:bg-red-700'}`}
-                                    >
-                                        Next Word <i className="fa-solid fa-arrow-right ml-1"></i>
-                                    </button>
-                                </div>
+                                <FeedbackCard 
+                                    isCorrect={feedback === 'CORRECT'}
+                                    correctAnswer={
+                                        mode === 'GRAMMAR' ? grammarPrompt.answer
+                                        : (direction === 'LAT_TO_ENG' ? currentWord.eng : currentWord.lat)
+                                    }
+                                    userAnswer={userAnswer}
+                                    onNext={nextCard}
+                                />
                             )}
                         </div>
                     </div>
@@ -379,107 +364,22 @@
 
         // --- SUB COMPONENTS ---
 
-        function QuizCard({ word, feedback, direction }) {
-            const showDetails = feedback !== null;
-            
-            // Helper to expand codes to full text
-            const getGrammarTags = (w) => {
-                let tags = [];
-                if (w.pos === 'n') tags.push('Noun');
-                if (w.pos === 'v') tags.push('Verb');
-                if (w.pos === 'adj') tags.push('Adjective');
-                if (w.pos === 'conj') tags.push('Conjunction');
-                if (w.pos === 'prep') tags.push('Preposition');
-                if (w.gen === 'm') tags.push('Masc');
-                if (w.gen === 'f') tags.push('Fem');
-                if (w.gen === 'n') tags.push('Neut');
-                if (w.decl) tags.push(`${w.decl}${getOrdinal(w.decl)} Decl.`);
-                if (w.conj) tags.push(`${w.conj}${getOrdinal(w.conj)} Conj.`);
-                return tags;
-            };
-
-            const getOrdinal = (n) => {
-                if (n===1) return 'st';
-                if (n===2) return 'nd';
-                if (n===3) return 'rd';
-                return 'th';
-            }
-
-            const mainText = direction === 'LAT_TO_ENG' ? word.lat : word.eng;
-            const subText = direction === 'LAT_TO_ENG' ? word.eng : word.lat;
-
-            return (
-                <div className="bg-white rounded-2xl shadow-xl border border-slate-200 overflow-hidden min-h-[200px] flex flex-col items-center justify-center text-center p-6 transition-all duration-300 relative">
-                    
-                    {/* Background Grammar Hint (Watermark style) */}
-                    <div className="absolute top-0 left-0 w-full h-1 bg-indigo-500"></div>
-                    
-                    <h2 className="text-4xl font-bold text-slate-800 latin-font mb-2">{mainText}</h2>
-                    
-                    {/* Reveal Answer Area */}
-                    <div className={`transition-all duration-500 overflow-hidden ${showDetails ? 'max-h-40 opacity-100 mt-4' : 'max-h-0 opacity-0'}`}>
-                        <p className="text-xl text-indigo-600 font-medium mb-3">{subText}</p>
-                        
-                        <div className="flex flex-wrap justify-center gap-2">
-                            {getGrammarTags(word).map((tag, i) => (
-                                <span key={i} className="text-xs bg-slate-100 text-slate-500 px-2 py-1 rounded border border-slate-200 uppercase tracking-wide font-semibold">
-                                    {tag}
-                                </span>
-                            ))}
-                        </div>
-                        {word.tags && (
-                             <div className="flex justify-center gap-1 mt-2">
-                                {word.tags.map(t => <span key={t} className="text-[10px] text-amber-600 bg-amber-50 px-1 rounded">{t}</span>)}
-                             </div>
-                        )}
-                    </div>
-
-                    {!showDetails && (
-                        <p className="text-slate-400 text-sm mt-4 italic">
-                            {direction === 'LAT_TO_ENG' ? 'Translate to English' : 'Translate to Latin'}
-                        </p>
-                    )}
-                </div>
-            )
-        }
-
         function MultipleChoice({ word, fullDb, onAnswer, direction }) {
             const [options, setOptions] = useState([]);
 
             useEffect(() => {
-                // Generate distractors
-                // 1. Filter DB for words with same Part of Speech (POS) if possible
-                let similarWords = fullDb.filter(w => w.pos === word.pos && w.lat !== word.lat);
-                
-                // If not enough similar words, just grab any distinct word
-                if (similarWords.length < 3) {
-                    similarWords = fullDb.filter(w => w.lat !== word.lat);
-                }
-
-                // Shuffle similar words and take 3
-                similarWords = similarWords.sort(() => Math.random() - 0.5).slice(0, 3);
-                
-                // Add correct answer
-                const choices = [...similarWords, word];
-                
-                // Shuffle final options
-                setOptions(choices.sort(() => Math.random() - 0.5));
-            }, [word, fullDb]);
-
-            const handleClick = (choice) => {
-                const isCorrect = choice.lat === word.lat;
-                onAnswer(isCorrect);
-            };
+                let similar = fullDb.filter(w => w.pos === word.pos && w.lat !== word.lat);
+                if (similar.length < 3) similar = fullDb.filter(w => w.lat !== word.lat);
+                similar = similar.sort(() => Math.random() - 0.5).slice(0, 3);
+                const choices = [...similar, word].sort(() => Math.random() - 0.5);
+                setOptions(choices);
+            }, [word]);
 
             return (
                 <div className="grid grid-cols-1 gap-3">
                     {options.map((opt, i) => (
-                        <button 
-                            key={i}
-                            onClick={() => handleClick(opt)}
-                            className="bg-white hover:bg-indigo-50 border-2 border-slate-200 hover:border-indigo-300 text-slate-700 hover:text-indigo-800 font-medium py-4 px-6 rounded-xl shadow-sm transition-all text-lg text-left active:scale-98"
-                        >
-                            <span className="inline-block w-8 text-slate-300 font-bold">{String.fromCharCode(65 + i)}.</span>
+                        <button key={i} onClick={() => onAnswer(opt.lat === word.lat)}
+                            className="bg-white hover:bg-indigo-50 border-2 border-slate-200 hover:border-indigo-300 text-slate-700 font-medium py-4 px-6 rounded-xl shadow-sm text-lg text-left transition-all active:scale-98">
                             {direction === 'LAT_TO_ENG' ? opt.eng : opt.lat}
                         </button>
                     ))}
@@ -487,59 +387,103 @@
             );
         }
 
-        function TypingInput({ word, onAnswer, direction }) {
+        function TypingInput({ target, mode, onAnswer }) {
             const [val, setVal] = useState('');
+            const inputRef = useRef(null);
 
-            const handleSubmit = (e) => {
+            const insertChar = (char) => {
+                setVal(prev => prev + char);
+                inputRef.current.focus();
+            };
+
+            const checkAnswer = (e) => {
                 e.preventDefault();
                 if (!val.trim()) return;
 
-                const target = direction === 'LAT_TO_ENG' ? word.eng : word.lat;
+                // Normalization
+                // 1. Remove macrons from TARGET and INPUT to allow "lazy" typing
+                // 2. OR, strict check. 
+                // Let's do a "smart check": If they typed macrons, match strictly. If not, loose match.
                 
-                // Normalization for comparison:
-                // 1. Lowercase
-                // 2. Remove multiple definitions (everything after '/')
-                // 3. Trim whitespace
-                
-                // Note on Macrons: For beginners, typing macrons is hard. 
-                // A robust app might normalize accents (remove macrons) for checking.
-                // Simple normalizer:
-                const clean = (str) => str.toLowerCase().split('/')[0].trim();
+                const normalize = (str) => str.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+                const cleanTarget = target.toLowerCase().trim(); // Has macrons if DB has them
                 const cleanInput = val.toLowerCase().trim();
                 
-                // Ideally we'd strip macrons here for the check, but for now simple match
-                // You can add a stripMacrons utility later
+                // If input has no special chars, compare normalized versions
+                const inputHasMacrons = cleanInput !== normalize(cleanInput);
                 
-                // Check against all slash-separated options
-                const acceptableAnswers = target.split('/').map(s => s.trim().toLowerCase());
-                
-                // Very basic check - checks if input matches any of the slash options
-                const isCorrect = acceptableAnswers.some(ans => ans === cleanInput || cleanInput.includes(ans)); // lax checking
+                let isCorrect = false;
+
+                // Handle Slash options (e.g. "house/cottage")
+                const targets = target.split('/').map(t => t.trim());
+
+                if (inputHasMacrons) {
+                    // Strict check against at least one option
+                    isCorrect = targets.some(t => t.toLowerCase() === cleanInput);
+                } else {
+                    // Loose check
+                    isCorrect = targets.some(t => normalize(t) === normalize(cleanInput));
+                }
 
                 onAnswer(isCorrect, val);
             };
 
+            const macrons = ['ā', 'ē', 'ī', 'ō', 'ū', 'ȳ'];
+
             return (
-                <form onSubmit={handleSubmit} className="w-full">
+                <form onSubmit={checkAnswer} className="w-full">
+                    {/* Macron Bar */}
+                    {(mode === 'GRAMMAR' || true) && (
+                        <div className="flex gap-2 mb-2 justify-center">
+                            {macrons.map(char => (
+                                <button key={char} type="button" onClick={() => insertChar(char)}
+                                    className="w-8 h-8 bg-slate-200 hover:bg-slate-300 rounded text-slate-700 font-serif font-bold transition-colors">
+                                    {char}
+                                </button>
+                            ))}
+                        </div>
+                    )}
+                    
                     <input 
+                        ref={inputRef}
                         type="text" 
                         autoFocus
                         value={val}
                         onChange={(e) => setVal(e.target.value)}
-                        placeholder="Type answer here..."
-                        className="w-full p-4 text-lg border-2 border-slate-300 rounded-xl focus:border-indigo-500 focus:outline-none shadow-inner mb-4 bg-white"
+                        placeholder="Type answer..."
+                        className="w-full p-4 text-lg border-2 border-slate-300 rounded-xl focus:border-indigo-500 focus:outline-none shadow-inner mb-4 bg-white text-center font-medium"
                     />
-                    <button 
-                        type="submit"
-                        className="w-full bg-slate-800 text-white font-bold py-3 rounded-xl shadow-lg hover:bg-slate-700 transition-transform active:scale-95"
-                    >
+                    <button type="submit" className="w-full bg-slate-800 text-white font-bold py-3 rounded-xl shadow-lg hover:bg-slate-700 transition-transform active:scale-95">
                         Check Answer
                     </button>
-                    <p className="text-xs text-center text-slate-400 mt-2">
-                        Separate multiple meanings with slash (/) not required.
-                    </p>
                 </form>
             );
+        }
+
+        function FeedbackCard({ isCorrect, correctAnswer, userAnswer, onNext }) {
+            return (
+                <div className={`rounded-xl p-6 shadow-lg border-2 animate-fade-in ${isCorrect ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'}`}>
+                    <div className="flex items-center gap-4 mb-4">
+                        <div className={`h-12 w-12 rounded-full flex items-center justify-center text-white text-xl ${isCorrect ? 'bg-green-500' : 'bg-red-500'}`}>
+                            <i className={`fa-solid ${isCorrect ? 'fa-check' : 'fa-times'}`}></i>
+                        </div>
+                        <div>
+                            <h3 className={`text-xl font-bold ${isCorrect ? 'text-green-800' : 'text-red-800'}`}>
+                                {isCorrect ? 'Optime!' : 'Eheu!'}
+                            </h3>
+                            {!isCorrect && (
+                                <div className="text-sm mt-1">
+                                    <p className="text-slate-500">Correct Answer:</p>
+                                    <p className="text-lg font-bold text-slate-800 latin-font">{correctAnswer}</p>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                    <button onClick={onNext} autoFocus className={`w-full py-3 rounded-lg font-bold text-white shadow-md ${isCorrect ? 'bg-green-600 hover:bg-green-700' : 'bg-red-600 hover:bg-red-700'}`}>
+                        Next <i className="fa-solid fa-arrow-right ml-1"></i>
+                    </button>
+                </div>
+            )
         }
 
         const root = ReactDOM.createRoot(document.getElementById('root'));
