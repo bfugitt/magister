@@ -14,12 +14,35 @@ const LatinMorph = {
             "Sg": "Singular", "Pl": "Plural",
             "Pres": "Present", "Imp": "Imperfect", "Fut": "Future",
             "Ind": "Indicative", 
-            "1sg": "1st Person Singular", "2sg": "2nd Person Singular", "3sg": "3rd Person Singular",
-            "1pl": "1st Person Plural", "2pl": "2nd Person Plural", "3pl": "3rd Person Plural"
+            "1sg": "1st Person Sg", "2sg": "2nd Person Sg", "3sg": "3rd Person Sg",
+            "1pl": "1st Person Pl", "2pl": "2nd Person Pl", "3pl": "3rd Person Pl"
         };
-        
-        // Split "Gen Sg" -> ["Gen", "Sg"] -> map -> join
         return key.split(' ').map(part => map[part] || part).join(' ');
+    },
+
+    // Defines the grid structure for the "Sort" activity
+    getChartData: (pos) => {
+        if (pos === 'n') {
+            return {
+                rows: ["Nom", "Gen", "Dat", "Acc", "Abl"],
+                cols: ["Sg", "Pl"],
+                // Maps grid coordinates back to the keys used in generateForms
+                getKey: (r, c) => `${r} ${c}` 
+            };
+        } else if (pos === 'v') {
+            // Group by Tense? For now, we only generate one tense at a time for sorting to keep it simple.
+            // Let's default to Present System for now, or just generic 1-3 Person.
+            return {
+                rows: ["1st", "2nd", "3rd"],
+                cols: ["Sg", "Pl"],
+                getKey: (r, c, tense = "Pres Ind") => {
+                    const pMap = {"1st":"1","2nd":"2","3rd":"3"};
+                    const nMap = {"Sg":"sg","Pl":"pl"};
+                    return `${tense} ${pMap[r]}${nMap[c]}`;
+                }
+            };
+        }
+        return null;
     },
 
     getStem2ndMasculine: (lat) => {
@@ -89,9 +112,6 @@ const LatinMorph = {
         const c = word.conj;
         const is3io = word.lat.endsWith("io") && c == 3;
 
-        // PRESENT SYSTEM LOGIC (Simplified for brevity, same as before)
-        // ... (Logic kept compact here) ...
-
         // PRESENT
         let pStem = stem;
         if (c==3 && !is3io) { // duco
@@ -153,17 +173,37 @@ const LatinMorph = {
         return null;
     },
 
-    // NEW: Generate distractors for Multiple Choice
+    // For Parse Activity:
+    // We need to know if "agricolae" appears multiple times in the chart (Gen Sg, Dat Sg, Nom Pl)
+    // to avoid creating a distractor that is actually correct.
     getDistractors: (word, correctText) => {
         const forms = LatinMorph.generateForms(word);
         if (!forms) return [];
         
-        // Get unique forms that aren't the answer
-        const uniqueForms = [...new Set(Object.values(forms))];
-        const distractors = uniqueForms.filter(f => f !== correctText);
+        // Distractors must satisfy: value != correctText
+        // (i.e. don't pick Nom Pl as a distractor for Gen Sg if they are both "agricolae")
+        const allForms = Object.values(forms);
+        const distractors = allForms.filter(f => f !== correctText);
         
-        // Shuffle and take 3
-        return distractors.sort(() => Math.random() - 0.5).slice(0, 3);
+        // Remove duplicates and shuffle
+        return [...new Set(distractors)].sort(() => Math.random() - 0.5).slice(0, 3);
+    },
+
+    // For Parse Activity - Distractor LABELS
+    // If the answer is "Gen Sg" (agricolae), we need distractors like "Acc Pl", not "agricolās"
+    getParseDistractors: (word, correctKey, correctValue) => {
+        const forms = LatinMorph.generateForms(word);
+        if (!forms) return [];
+
+        const validKeys = Object.keys(forms);
+        
+        // A key is a valid distractor if its VALUE is NOT the same as the target value
+        // Example: if target is "agricolae" (Gen Sg), then "Nom Pl" (agricolae) is NOT a valid distractor (it's also correct).
+        // But "Acc Sg" (agricolam) IS a valid distractor.
+        
+        const validDistractorKeys = validKeys.filter(k => forms[k] !== correctValue);
+        
+        return validDistractorKeys.sort(() => Math.random() - 0.5).slice(0, 3);
     }
 };
 
