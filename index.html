@@ -290,7 +290,7 @@
                     <ChartActivity 
                         word={currentWord} 
                         onComplete={() => {
-                            setScore(s => ({ correct: s.correct + 1, total: s.total + 1 })); // Chart always counts as 1 if completed? Or per cell? Simplified to 1.
+                            setScore(s => ({ correct: s.correct + 1, total: s.total + 1 })); 
                             nextCard();
                         }}
                         onExit={resetApp}
@@ -398,18 +398,28 @@
             );
         }
 
-        // --- CHART ACTIVITY COMPONENT (New) ---
+        // --- CHART ACTIVITY COMPONENT ---
 
         function ChartActivity({ word, onComplete, onExit, progress }) {
+            // State for random tense (only applies if word is a verb)
+            const [targetTense, setTargetTense] = useState('Pres Ind');
+
+            // Pick a random tense on load
+            useEffect(() => {
+                if (word.pos === 'v') {
+                    const tenses = ['Pres Ind', 'Imp Ind', 'Fut Ind'];
+                    setTargetTense(tenses[Math.floor(Math.random() * tenses.length)]);
+                }
+            }, [word]);
+
             // Get grid structure
             const gridData = useMemo(() => window.LatinMorph.getChartData(word.pos), [word]);
             const correctForms = useMemo(() => window.LatinMorph.generateForms(word), [word]);
             
-            // State for the slots: key -> value
-            // We initialize empty
+            // State for the slots
             const [slots, setSlots] = useState({});
             
-            // Bank of available words (shuffled correct answers)
+            // Bank of available words
             const [bank, setBank] = useState([]);
             const [selectedBankItem, setSelectedBankItem] = useState(null);
             
@@ -419,36 +429,40 @@
 
             useEffect(() => {
                 // Initialize Bank
-                const forms = Object.values(correctForms);
-                setBank(forms.sort(() => Math.random() - 0.5));
+                // FIX: Only grab words that correspond to the valid slots in the grid!
+                // Iterate the grid rows/cols to find the keys we need.
+                const validKeys = [];
+                gridData.rows.forEach(r => {
+                    gridData.cols.forEach(c => {
+                        // Pass targetTense (only used by verbs)
+                        validKeys.push(gridData.getKey(r, c, targetTense));
+                    });
+                });
+                
+                // Filter correctForms to only the valid keys
+                const validForms = validKeys.map(k => correctForms[k]);
+                
+                setBank(validForms.sort(() => Math.random() - 0.5));
                 setSlots({});
                 setIsDone(false);
                 setMistakes(0);
                 setSelectedBankItem(null);
-            }, [word, correctForms]);
+            }, [word, correctForms, gridData, targetTense]);
 
             const handleSlotClick = (r, c) => {
                 if (isDone) return;
-                const key = gridData.getKey(r, c);
+                const key = gridData.getKey(r, c, targetTense);
 
-                // If we have a selected bank item, place it
                 if (selectedBankItem !== null) {
                     const wordToPlace = bank[selectedBankItem];
-                    
-                    // Optimistic placement? No, let's validate on check? 
-                    // Or "Flash Card" style: User places it.
-                    // Let's allow overwrite.
-                    
                     const newSlots = { ...slots, [key]: wordToPlace };
                     setSlots(newSlots);
                     
-                    // Remove from bank
                     const newBank = [...bank];
                     newBank.splice(selectedBankItem, 1);
                     setBank(newBank);
                     setSelectedBankItem(null);
                 } else if (slots[key]) {
-                    // If clicking a filled slot without selection, return to bank
                     const wordToReturn = slots[key];
                     const newSlots = { ...slots };
                     delete newSlots[key];
@@ -458,23 +472,19 @@
             };
 
             const checkChart = () => {
-                // Check if all slots correct
                 let errorCount = 0;
                 let isPerfect = true;
-                
-                // For simplified checking, we just check if visually correct?
-                // No, we need to check against correctForms.
-                
-                // Note: Ambiguity (agricolae vs agricolae). 
-                // Simple approach: The map `correctForms` has specific values for specific keys.
-                // We just check string equality.
+                const newSlots = {...slots};
+                const returnedWords = [];
                 
                 gridData.rows.forEach(r => {
                     gridData.cols.forEach(c => {
-                        const key = gridData.getKey(r, c);
+                        const key = gridData.getKey(r, c, targetTense);
                         if (slots[key] !== correctForms[key]) {
                             isPerfect = false;
                             errorCount++;
+                            if(slots[key]) returnedWords.push(slots[key]);
+                            delete newSlots[key];
                         }
                     });
                 });
@@ -483,21 +493,6 @@
                     setIsDone(true);
                 } else {
                     alert(`Not quite! ${errorCount} incorrect placements. Words returned to bank.`);
-                    // Ideally: Keep correct ones, return wrong ones.
-                    // Implementation:
-                    const newSlots = {...slots};
-                    const returnedWords = [];
-                    
-                    gridData.rows.forEach(r => {
-                        gridData.cols.forEach(c => {
-                            const key = gridData.getKey(r, c);
-                            if (slots[key] !== correctForms[key]) {
-                                if(slots[key]) returnedWords.push(slots[key]);
-                                delete newSlots[key];
-                            }
-                        });
-                    });
-                    
                     setSlots(newSlots);
                     setBank([...bank, ...returnedWords]);
                     setMistakes(m => m + 1);
@@ -506,12 +501,22 @@
 
             if (!gridData) return <div className="p-8 text-center">Charts not supported for this word type. <button onClick={onComplete}>Skip</button></div>;
 
+            // Map tense codes to human readable
+            const readableTense = {
+                'Pres Ind': 'Present',
+                'Imp Ind': 'Imperfect',
+                'Fut Ind': 'Future'
+            };
+
             return (
                 <div className="min-h-screen bg-slate-100 flex flex-col">
                     {/* Header */}
                     <div className="bg-white p-4 shadow-sm flex justify-between items-center sticky top-0 z-10">
                         <button onClick={onExit} className="text-slate-400"><i className="fa-solid fa-xmark"></i></button>
-                        <h2 className="font-bold text-slate-700">Sort: {word.lat}</h2>
+                        <div className="text-center">
+                            <h2 className="font-bold text-slate-700 text-lg">{word.lat}</h2>
+                            {word.pos === 'v' && <span className="text-xs font-bold text-indigo-600 uppercase tracking-wider">{readableTense[targetTense]} Tense</span>}
+                        </div>
                         <span className="text-sm font-bold bg-slate-200 px-2 rounded">{progress.current}/{progress.total}</span>
                     </div>
 
@@ -531,7 +536,7 @@
                                         <tr key={r} className="border-b border-slate-100 last:border-0">
                                             <td className="p-2 bg-slate-50 font-bold text-slate-600 border-r border-slate-100 w-16 text-center">{r}</td>
                                             {gridData.cols.map(c => {
-                                                const key = gridData.getKey(r, c);
+                                                const key = gridData.getKey(r, c, targetTense);
                                                 const filled = slots[key];
                                                 return (
                                                     <td key={c} 
