@@ -1,0 +1,469 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Latin Vocabulary: Chapters 1-7</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&family=Lato:ital,wght@0,400;0,700;1,400&display=swap');
+        
+        body {
+            font-family: 'Lato', sans-serif;
+            background-color: #f3f4f6;
+        }
+        
+        h1, h2, .latin-title {
+            font-family: 'Cinzel', serif;
+        }
+
+        .card {
+            break-inside: avoid;
+        }
+    </style>
+</head>
+<body class="bg-stone-100 text-stone-800 p-4 md:p-8">
+
+    <div class="max-w-5xl mx-auto">
+        <header class="text-center mb-12">
+            <h1 class="text-4xl md:text-5xl font-bold text-stone-900 mb-4">Latin Vocabulary</h1>
+            <p class="text-xl text-stone-600">Reference for Chapters 1-7</p>
+        </header>
+
+        <div id="vocabulary-container">
+            <!-- Content will be injected here by JavaScript -->
+        </div>
+    </div>
+
+    <script>
+        // Vocabulary Data
+        const vocabulary = [
+            // --- CHAPTER 1 ---
+            { ch: 1, type: 'noun', word: 'agricola', meaning: 'farmer', gender: 'm', decl: 1 },
+            { ch: 1, type: 'noun', word: 'aqua', meaning: 'water', gender: 'f', decl: 1 },
+            { ch: 1, type: 'noun', word: 'athleta', meaning: 'athlete', gender: 'm', decl: 1 },
+            { ch: 1, type: 'noun', word: 'filia', meaning: 'daughter', gender: 'f', decl: 1 },
+            { ch: 1, type: 'noun', word: 'lupa', meaning: 'she-wolf', gender: 'f', decl: 1 },
+            { ch: 1, type: 'noun', word: 'nauta', meaning: 'sailor', gender: 'm', decl: 1 },
+            { ch: 1, type: 'noun', word: 'poeta', meaning: 'poet', gender: 'm', decl: 1 },
+            { ch: 1, type: 'noun', word: 'puella', meaning: 'girl', gender: 'f', decl: 1 },
+            { ch: 1, type: 'noun', word: 'Roma', meaning: 'Rome', gender: 'f', decl: 1 },
+            { ch: 1, type: 'noun', word: 'terra', meaning: 'land', gender: 'f', decl: 1 },
+            { ch: 1, type: 'verb', word: 'amo', meaning: 'to love', conj: 1 },
+            { ch: 1, type: 'verb', word: 'ambulo', meaning: 'to walk', conj: 1 },
+            { ch: 1, type: 'verb', word: 'curo', meaning: 'to take care of', conj: 1 },
+            { ch: 1, type: 'verb', word: 'est', meaning: 'is', conj: 'irr', note: '3rd sg. of sum' },
+            { ch: 1, type: 'verb', word: 'sunt', meaning: 'are', conj: 'irr', note: '3rd pl. of sum' },
+            { ch: 1, type: 'adv', word: 'bene', meaning: 'well' },
+            { ch: 1, type: 'adv', word: 'postea', meaning: 'afterwards' },
+            { ch: 1, type: 'conj', word: 'et', meaning: 'and' },
+            { ch: 1, type: 'conj', word: 'itaque', meaning: 'and so' },
+
+            // --- CHAPTER 2 ---
+            { ch: 2, type: 'noun', word: 'ager', gen: 'agri', stem: 'agr', meaning: 'field', gender: 'm', decl: 2 },
+            { ch: 2, type: 'noun', word: 'amicus', meaning: 'friend', gender: 'm', decl: 2 },
+            { ch: 2, type: 'noun', word: 'annus', meaning: 'year', gender: 'm', decl: 2 },
+            { ch: 2, type: 'noun', word: 'campus', meaning: 'field/plain', gender: 'm', decl: 2 },
+            { ch: 2, type: 'noun', word: 'deus', meaning: 'god', gender: 'm', decl: 2 },
+            { ch: 2, type: 'noun', word: 'dominus', meaning: 'master', gender: 'm', decl: 2 },
+            { ch: 2, type: 'noun', word: 'equus', meaning: 'horse', gender: 'm', decl: 2 },
+            { ch: 2, type: 'noun', word: 'filius', stem: 'fili', meaning: 'son', gender: 'm', decl: 2 },
+            { ch: 2, type: 'noun', word: 'gladius', stem: 'gladi', meaning: 'sword', gender: 'm', decl: 2 },
+            { ch: 2, type: 'noun', word: 'legatus', meaning: 'lieutenant/envoy', gender: 'm', decl: 2 },
+            { ch: 2, type: 'noun', word: 'ludus', meaning: 'game/school', gender: 'm', decl: 2 },
+            { ch: 2, type: 'noun', word: 'nuntius', stem: 'nunti', meaning: 'messenger', gender: 'm', decl: 2 },
+            { ch: 2, type: 'noun', word: 'puer', gen: 'pueri', stem: 'puer', meaning: 'boy', gender: 'm', decl: 2 },
+            { ch: 2, type: 'noun', word: 'servus', meaning: 'slave', gender: 'm', decl: 2 },
+            { ch: 2, type: 'noun', word: 'vir', gen: 'viri', stem: 'vir', meaning: 'man', gender: 'm', decl: 2 },
+            { ch: 2, type: 'verb', word: 'clamo', meaning: 'to shout', conj: 1 },
+            { ch: 2, type: 'verb', word: 'debeo', meaning: 'to owe/ought', conj: 2 },
+            { ch: 2, type: 'verb', word: 'do', meaning: 'to give', conj: 1 }, // Irregular short 'a'
+            { ch: 2, type: 'verb', word: 'habeo', meaning: 'to have', conj: 2 },
+            { ch: 2, type: 'verb', word: 'habito', meaning: 'to live/dwell', conj: 1 },
+            { ch: 2, type: 'verb', word: 'laboro', meaning: 'to work', conj: 1 },
+            { ch: 2, type: 'verb', word: 'laudo', meaning: 'to praise', conj: 1 },
+            { ch: 2, type: 'verb', word: 'moneo', meaning: 'to warn', conj: 2 },
+            { ch: 2, type: 'verb', word: 'narro', meaning: 'to tell', conj: 1 },
+            { ch: 2, type: 'verb', word: 'porto', meaning: 'to carry', conj: 1 },
+            { ch: 2, type: 'verb', word: 'specto', meaning: 'to watch', conj: 1 },
+            { ch: 2, type: 'verb', word: 'sum', meaning: 'to be', conj: 'irr' },
+            { ch: 2, type: 'verb', word: 'timeo', meaning: 'to fear', conj: 2 },
+            { ch: 2, type: 'verb', word: 'video', meaning: 'to see', conj: 2 },
+            { ch: 2, type: 'verb', word: 'voco', meaning: 'to call', conj: 1 },
+            { ch: 2, type: 'prep', word: 'cum', meaning: 'with (+Abl)' },
+
+            // --- CHAPTER 3 ---
+            { ch: 3, type: 'noun', word: 'bellum', meaning: 'war', gender: 'n', decl: 2 },
+            { ch: 3, type: 'noun', word: 'caelum', meaning: 'sky', gender: 'n', decl: 2 },
+            { ch: 3, type: 'noun', word: 'donum', meaning: 'gift', gender: 'n', decl: 2 },
+            { ch: 3, type: 'noun', word: 'frumentum', meaning: 'grain', gender: 'n', decl: 2 },
+            { ch: 3, type: 'noun', word: 'oppidum', meaning: 'town', gender: 'n', decl: 2 },
+            { ch: 3, type: 'noun', word: 'periculum', meaning: 'danger', gender: 'n', decl: 2 },
+            { ch: 3, type: 'noun', word: 'regnum', meaning: 'kingdom', gender: 'n', decl: 2 },
+            { ch: 3, type: 'adj', word: 'altus', meaning: 'high/deep' },
+            { ch: 3, type: 'adj', word: 'bonus', meaning: 'good' },
+            { ch: 3, type: 'adj', word: 'ferus', meaning: 'wild' },
+            { ch: 3, type: 'adj', word: 'latus', meaning: 'wide' },
+            { ch: 3, type: 'adj', word: 'longus', meaning: 'long' },
+            { ch: 3, type: 'adj', word: 'magnus', meaning: 'large/great' },
+            { ch: 3, type: 'adj', word: 'malus', meaning: 'bad/evil' },
+            { ch: 3, type: 'adj', word: 'meus', meaning: 'my' },
+            { ch: 3, type: 'adj', word: 'miser', meaning: 'wretched' },
+            { ch: 3, type: 'adj', word: 'multus', meaning: 'much/many' },
+            { ch: 3, type: 'adj', word: 'parvus', meaning: 'small' },
+            { ch: 3, type: 'adj', word: 'pulcher', meaning: 'beautiful' },
+            { ch: 3, type: 'adj', word: 'tuus', meaning: 'your' },
+            { ch: 3, type: 'verb', word: 'appello', meaning: 'to call/name', conj: 1 },
+            { ch: 3, type: 'verb', word: 'convoco', meaning: 'to call together', conj: 1 },
+            { ch: 3, type: 'verb', word: 'exspecto', meaning: 'to wait for', conj: 1 },
+            { ch: 3, type: 'prep', word: 'ad', meaning: 'to/toward (+Acc)' },
+            { ch: 3, type: 'adv', word: 'non', meaning: 'not' },
+
+            // --- CHAPTER 4 ---
+            { ch: 4, type: 'noun', word: 'arma', stem: 'arm', meaning: 'weapons', gender: 'n', decl: 2, number: 'plural' },
+            { ch: 4, type: 'noun', word: 'castra', stem: 'castr', meaning: 'camp', gender: 'n', decl: 2, number: 'plural' },
+            { ch: 4, type: 'noun', word: 'consilium', meaning: 'plan/advice', gender: 'n', decl: 2 },
+            { ch: 4, type: 'noun', word: 'dolus', meaning: 'trickery', gender: 'm', decl: 2 },
+            { ch: 4, type: 'noun', word: 'exemplum', meaning: 'example', gender: 'n', decl: 2 },
+            { ch: 4, type: 'noun', word: 'praemium', meaning: 'reward', gender: 'n', decl: 2 },
+            { ch: 4, type: 'noun', word: 'venenum', meaning: 'poison', gender: 'n', decl: 2 },
+            { ch: 4, type: 'noun', word: 'vinculum', meaning: 'chain', gender: 'n', decl: 2 },
+            { ch: 4, type: 'adj', word: 'iustus', meaning: 'just/righteous' },
+            { ch: 4, type: 'adj', word: 'praeclarus', meaning: 'famous' },
+            { ch: 4, type: 'adj', word: 'Romanus', meaning: 'Roman' },
+            { ch: 4, type: 'verb', word: 'intro', meaning: 'to enter', conj: 1 },
+            { ch: 4, type: 'verb', word: 'iubeo', meaning: 'to order', conj: 2 },
+            { ch: 4, type: 'prep', word: 'e/ex', meaning: 'from/out of (+Abl)' },
+            { ch: 4, type: 'prep', word: 'in', meaning: 'in/on (+Abl), into (+Acc)' },
+            { ch: 4, type: 'conj', word: 'autem', meaning: 'however' },
+            { ch: 4, type: 'conj', word: 'sed', meaning: 'but' },
+
+            // --- CHAPTER 5 ---
+            { ch: 5, type: 'noun', word: 'auxilium', meaning: 'help', gender: 'n', decl: 2 },
+            { ch: 5, type: 'noun', word: 'epistula', meaning: 'letter', gender: 'f', decl: 1 },
+            { ch: 5, type: 'noun', word: 'familia', meaning: 'family', gender: 'f', decl: 1 },
+            { ch: 5, type: 'noun', word: 'gaudium', meaning: 'joy', gender: 'n', decl: 2 },
+            { ch: 5, type: 'noun', word: 'lacrima', meaning: 'tear', gender: 'f', decl: 1 },
+            { ch: 5, type: 'verb', word: 'cogito', meaning: 'to think', conj: 1 },
+            { ch: 5, type: 'verb', word: 'doleo', meaning: 'to feel pain', conj: 2 },
+            { ch: 5, type: 'verb', word: 'paro', meaning: 'to prepare', conj: 1 },
+            { ch: 5, type: 'prep', word: 'a/ab', meaning: 'by/from (+Abl)' },
+            { ch: 5, type: 'prep', word: 'de', meaning: 'about/down from (+Abl)' },
+            { ch: 5, type: 'adv', word: 'longe', meaning: 'far' },
+            { ch: 5, type: 'adv', word: 'semper', meaning: 'always' },
+            { ch: 5, type: 'conj', word: 'nam', meaning: 'for/in fact' },
+
+            // --- CHAPTER 6 ---
+            { ch: 6, type: 'noun', word: 'littera', meaning: 'letter (alphabet)', gender: 'f', decl: 1 },
+            { ch: 6, type: 'noun', word: 'memoria', meaning: 'memory', gender: 'f', decl: 1 },
+            { ch: 6, type: 'noun', word: 'scientia', meaning: 'knowledge', gender: 'f', decl: 1 },
+            { ch: 6, type: 'noun', word: 'tenebrae', stem: 'tenebr', meaning: 'shadows', gender: 'f', decl: 1, number: 'plural' },
+            { ch: 6, type: 'noun', word: 'vita', meaning: 'life', gender: 'f', decl: 1 },
+            { ch: 6, type: 'verb', word: 'disco', meaning: 'to learn', conj: 3 },
+            { ch: 6, type: 'verb', word: 'doceo', meaning: 'to teach', conj: 2 },
+            { ch: 6, type: 'verb', word: 'firmo', meaning: 'to strengthen', conj: 1 },
+            { ch: 6, type: 'verb', word: 'iudico', meaning: 'to judge', conj: 1 },
+            { ch: 6, type: 'verb', word: 'maneo', meaning: 'to remain', conj: 2 },
+            { ch: 6, type: 'verb', word: 'possum', meaning: 'to be able', conj: 'irr' },
+            { ch: 6, type: 'verb', word: 'servo', meaning: 'to save', conj: 1 },
+            { ch: 6, type: 'verb', word: 'soleo', meaning: 'to be accustomed', conj: 2 },
+            { ch: 6, type: 'conj', word: 'dum', meaning: 'while' },
+            { ch: 6, type: 'adv', word: 'multum', meaning: 'much' },
+
+            // --- CHAPTER 7 ---
+            { ch: 7, type: 'noun', word: 'amor', gen: 'amoris', stem: 'amor', meaning: 'love', gender: 'm', decl: 3 },
+            { ch: 7, type: 'noun', word: 'deliciae', stem: 'delici', meaning: 'delight/pet', gender: 'f', decl: 1, number: 'plural' },
+            { ch: 7, type: 'noun', word: 'gremium', meaning: 'lap', gender: 'n', decl: 2 },
+            { ch: 7, type: 'noun', word: 'mel', gen: 'mellis', stem: 'mell', meaning: 'honey', gender: 'n', decl: 3 },
+            { ch: 7, type: 'noun', word: 'oculus', meaning: 'eye', gender: 'm', decl: 2 },
+            { ch: 7, type: 'noun', word: 'passer', gen: 'passeris', stem: 'passer', meaning: 'sparrow', gender: 'm', decl: 3 },
+            { ch: 7, type: 'noun', word: 'pax', gen: 'pacis', stem: 'pac', meaning: 'peace', gender: 'f', decl: 3 },
+            { ch: 7, type: 'noun', word: 'senex', gen: 'senis', stem: 'sen', meaning: 'old man', gender: 'm', decl: 3 },
+            { ch: 7, type: 'noun', word: 'soror', gen: 'sororis', stem: 'soror', meaning: 'sister', gender: 'f', decl: 3 },
+            { ch: 7, type: 'noun', word: 'verbum', meaning: 'word', gender: 'n', decl: 2 },
+            { ch: 7, type: 'adj', word: 'mellitus', meaning: 'honey-sweet' },
+            { ch: 7, type: 'adj', word: 'severus', meaning: 'strict' },
+            { ch: 7, type: 'verb', word: 'aestimo', meaning: 'to value', conj: 1 },
+            { ch: 7, type: 'verb', word: 'invideo', meaning: 'to envy', conj: 2 },
+            { ch: 7, type: 'verb', word: 'puto', meaning: 'to think', conj: 1 },
+            { ch: 7, type: 'pronoun', word: 'se', meaning: 'himself/herself' }
+        ];
+
+        function getEndings(decl, gender) {
+            // Simplified endings map
+            if (decl === 1) {
+                return {
+                    genS: 'ae',
+                    nomS: 'a', genS_val: 'ae', datS: 'ae', accS: 'am', ablS: 'ā',
+                    nomP: 'ae', genP: 'ārum', datP: 'īs', accP: 'ās', ablP: 'īs'
+                };
+            }
+            if (decl === 2) {
+                if (gender === 'n') {
+                    return {
+                        genS: 'ī',
+                        nomS: 'um', genS_val: 'ī', datS: 'ō', accS: 'um', ablS: 'ō',
+                        nomP: 'a', genP: 'ōrum', datP: 'īs', accP: 'a', ablP: 'īs'
+                    };
+                } else {
+                    return {
+                        genS: 'ī',
+                        nomS: 'us', genS_val: 'ī', datS: 'ō', accS: 'um', ablS: 'ō',
+                        nomP: 'ī', genP: 'ōrum', datP: 'īs', accP: 'ōs', ablP: 'īs'
+                    };
+                }
+            }
+            if (decl === 3) {
+                if (gender === 'n') {
+                    return {
+                        genS: 'is',
+                        nomS: '*', genS_val: 'is', datS: 'ī', accS: '*', ablS: 'e',
+                        nomP: 'a', genP: 'um', datP: 'ibus', accP: 'a', ablP: 'ibus'
+                    };
+                } else {
+                    return {
+                        genS: 'is',
+                        nomS: '*', genS_val: 'is', datS: 'ī', accS: 'em', ablS: 'e',
+                        nomP: 'ēs', genP: 'um', datP: 'ibus', accP: 'ēs', ablP: 'ibus'
+                    };
+                }
+            }
+            return null;
+        }
+
+        function generateNounTable(item) {
+            const endings = getEndings(item.decl, item.gender);
+            if (!endings) return `<p class="italic text-gray-500">Declension table not available.</p>`;
+
+            let stem = item.stem;
+            if (!stem) {
+                if (item.decl === 1) stem = item.word.slice(0, -1);
+                if (item.decl === 2) {
+                    if (item.word.endsWith('us')) stem = item.word.slice(0, -2);
+                    else if (item.word.endsWith('um')) stem = item.word.slice(0, -2);
+                    else if (item.word.endsWith('er')) stem = item.word;
+                    else stem = item.word;
+                }
+            }
+
+            const forms = {};
+            const e = endings;
+
+            forms.nomS = item.word;
+            forms.genS = stem + e.genS_val;
+            forms.datS = stem + e.datS;
+            forms.accS = (item.decl === 3 && item.gender === 'n') ? item.word : stem + e.accS;
+            forms.ablS = stem + e.ablS;
+
+            forms.nomP = stem + e.nomP;
+            forms.genP = stem + e.genP;
+            forms.datP = stem + e.datP;
+            forms.accP = stem + e.accP;
+            forms.ablP = stem + e.ablP;
+
+            if (item.number === 'plural') {
+                return `
+                    <table class="w-full text-sm text-left border-collapse">
+                        <thead>
+                            <tr class="bg-stone-200 border-b border-stone-300">
+                                <th class="p-2 font-bold text-stone-700">Case</th>
+                                <th class="p-2 font-bold text-stone-700">Plural</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr class="border-b border-stone-200"><td class="p-2 font-semibold text-stone-600">Nom</td><td class="p-2">${forms.nomP}</td></tr>
+                            <tr class="border-b border-stone-200"><td class="p-2 font-semibold text-stone-600">Gen</td><td class="p-2">${forms.genP}</td></tr>
+                            <tr class="border-b border-stone-200"><td class="p-2 font-semibold text-stone-600">Dat</td><td class="p-2">${forms.datP}</td></tr>
+                            <tr class="border-b border-stone-200"><td class="p-2 font-semibold text-stone-600">Acc</td><td class="p-2">${forms.accP}</td></tr>
+                            <tr class="border-b border-stone-200"><td class="p-2 font-semibold text-stone-600">Abl</td><td class="p-2">${forms.ablP}</td></tr>
+                        </tbody>
+                    </table>
+                `;
+            }
+
+            return `
+                <table class="w-full text-sm text-left border-collapse">
+                    <thead>
+                        <tr class="bg-stone-200 border-b border-stone-300">
+                            <th class="p-2 font-bold text-stone-700">Case</th>
+                            <th class="p-2 font-bold text-stone-700">Singular</th>
+                            <th class="p-2 font-bold text-stone-700">Plural</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr class="border-b border-stone-200"><td class="p-2 font-semibold text-stone-600">Nom</td><td class="p-2">${forms.nomS}</td><td class="p-2">${forms.nomP}</td></tr>
+                        <tr class="border-b border-stone-200"><td class="p-2 font-semibold text-stone-600">Gen</td><td class="p-2">${forms.genS}</td><td class="p-2">${forms.genP}</td></tr>
+                        <tr class="border-b border-stone-200"><td class="p-2 font-semibold text-stone-600">Dat</td><td class="p-2">${forms.datS}</td><td class="p-2">${forms.datP}</td></tr>
+                        <tr class="border-b border-stone-200"><td class="p-2 font-semibold text-stone-600">Acc</td><td class="p-2">${forms.accS}</td><td class="p-2">${forms.accP}</td></tr>
+                        <tr class="border-b border-stone-200"><td class="p-2 font-semibold text-stone-600">Abl</td><td class="p-2">${forms.ablS}</td><td class="p-2">${forms.ablP}</td></tr>
+                    </tbody>
+                </table>
+            `;
+        }
+
+        function generateVerbTable(item) {
+            // Logic to generate PAI (Present Active Indicative) forms
+            let forms = { s1: '', s2: '', s3: '', p1: '', p2: '', p3: '' };
+            let stem = '';
+            
+            if (item.conj === 'irr') {
+                if (item.word === 'sum') {
+                    forms = { s1: 'sum', s2: 'es', s3: 'est', p1: 'sumus', p2: 'estis', p3: 'sunt' };
+                } else if (item.word === 'possum') {
+                    forms = { s1: 'possum', s2: 'potes', s3: 'potest', p1: 'possumus', p2: 'potestis', p3: 'possunt' };
+                } else if (item.word === 'est' || item.word === 'sunt') {
+                     return `<p class="italic text-gray-500 p-2">See <strong>sum</strong> (Chapter 2) for full conjugation.</p>`;
+                }
+            } else if (item.word === 'do') {
+                // Irregular 1st conj: do, das, dat, damus, datis, dant (short 'a' in stem except 'das')
+                forms = { s1: 'dō', s2: 'dās', s3: 'dat', p1: 'damus', p2: 'datis', p3: 'dant' };
+            } else if (item.conj === 1) {
+                // Amo, -are
+                stem = item.word.slice(0, -1); // remove o
+                forms = { 
+                    s1: item.word, 
+                    s2: stem + 'ās', 
+                    s3: stem + 'at', 
+                    p1: stem + 'āmus', 
+                    p2: stem + 'ātis', 
+                    p3: stem + 'ant' 
+                };
+            } else if (item.conj === 2) {
+                // Moneo, -ere (Input: moneo)
+                stem = item.word.slice(0, -1); // remove o (mone)
+                forms = { 
+                    s1: item.word, 
+                    s2: stem + 's',  // mones
+                    s3: stem + 't',  // monet
+                    p1: stem + 'mus', // monemus
+                    p2: stem + 'tis', // monetis
+                    p3: stem + 'nt'   // monent
+                };
+            } else if (item.conj === 3) {
+                // Disco, -ere (Input: disco)
+                stem = item.word.slice(0, -1); // remove o (disc)
+                forms = { 
+                    s1: item.word, 
+                    s2: stem + 'is', 
+                    s3: stem + 'it', 
+                    p1: stem + 'imus', 
+                    p2: stem + 'itis', 
+                    p3: stem + 'unt' 
+                };
+            }
+
+            if (!forms.s1) return '';
+
+            return `
+                <table class="w-full text-sm text-left border-collapse">
+                    <thead>
+                        <tr class="bg-stone-200 border-b border-stone-300">
+                            <th class="p-2 font-bold text-stone-700">Person</th>
+                            <th class="p-2 font-bold text-stone-700">Singular</th>
+                            <th class="p-2 font-bold text-stone-700">Plural</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr class="border-b border-stone-200"><td class="p-2 font-semibold text-stone-600">1st</td><td class="p-2">${forms.s1}</td><td class="p-2">${forms.p1}</td></tr>
+                        <tr class="border-b border-stone-200"><td class="p-2 font-semibold text-stone-600">2nd</td><td class="p-2">${forms.s2}</td><td class="p-2">${forms.p2}</td></tr>
+                        <tr class="border-b border-stone-200"><td class="p-2 font-semibold text-stone-600">3rd</td><td class="p-2">${forms.s3}</td><td class="p-2">${forms.p3}</td></tr>
+                    </tbody>
+                </table>
+            `;
+        }
+
+        function createCard(item) {
+            const card = document.createElement('div');
+            card.className = "card bg-white rounded-lg shadow-md overflow-hidden border border-stone-200 mb-6 break-inside-avoid hover:shadow-lg transition-shadow duration-300";
+
+            // Header construction
+            let headerText = item.word;
+            if (item.type === 'noun' && item.decl) {
+                let genEnd = '';
+                if(item.gen) genEnd = ', -' + item.gen.slice(-2);
+                else if (item.decl === 1) genEnd = ', -ae';
+                else if (item.decl === 2 && item.gender === 'n') genEnd = ', -ī';
+                else if (item.decl === 2) genEnd = ', -ī';
+                headerText += `<span class="text-stone-500 font-normal text-lg">${genEnd}</span>`;
+            }
+            if (item.type === 'verb') {
+                let infEnd = '';
+                if (item.conj === 1 && item.word !== 'do') infEnd = ', -āre';
+                else if (item.word === 'do') infEnd = ', -are';
+                else if (item.conj === 2) infEnd = ', -ēre';
+                else if (item.conj === 3) infEnd = ', -ere';
+                else if (item.word === 'sum') infEnd = ', esse';
+                else if (item.word === 'possum') infEnd = ', posse';
+                headerText += `<span class="text-stone-500 font-normal text-lg">${infEnd}</span>`;
+            }
+
+            // Subtitle
+            let subtitle = `"${item.meaning}"`;
+            let meta = [];
+            if (item.gender) meta.push(item.gender.toUpperCase());
+            if (item.decl) meta.push(item.decl === 'irr' ? 'Irregular' : item.decl + getOrdinal(item.decl) + ' Declension');
+            if (item.conj) meta.push(item.conj === 'irr' ? 'Irregular' : item.conj + getOrdinal(item.conj) + ' Conjugation');
+            if (item.type !== 'noun' && item.type !== 'verb') meta.push(capitalize(item.type));
+
+            const headerHtml = `
+                <div class="bg-stone-800 text-stone-100 p-3 flex justify-between items-baseline">
+                    <h3 class="text-xl font-bold latin-title capitalize">${headerText}</h3>
+                    <span class="text-xs uppercase tracking-widest text-stone-400 ml-2">${item.type}</span>
+                </div>
+            `;
+
+            let tableHtml = '';
+            if (item.type === 'noun') tableHtml = generateNounTable(item);
+            else if (item.type === 'verb') tableHtml = generateVerbTable(item);
+
+            const bodyHtml = `
+                <div class="p-4">
+                    <div class="mb-3 text-stone-700">
+                        <p class="font-serif italic text-lg mb-1">${subtitle}</p>
+                        <p class="text-xs font-bold text-stone-400 uppercase tracking-wide">${meta.join(' • ')}</p>
+                    </div>
+                    ${tableHtml}
+                </div>
+            `;
+
+            card.innerHTML = headerHtml + bodyHtml;
+            return card;
+        }
+
+        function getOrdinal(n) {
+            if (n === 1) return 'st';
+            if (n === 2) return 'nd';
+            if (n === 3) return 'rd';
+            return 'th';
+        }
+
+        function capitalize(s) {
+            return s.charAt(0).toUpperCase() + s.slice(1);
+        }
+
+        function render() {
+            const container = document.getElementById('vocabulary-container');
+            let currentChapter = 0;
+            let chapterContainer = null;
+
+            vocabulary.forEach(item => {
+                if (item.ch !== currentChapter) {
+                    currentChapter = item.ch;
+                    
+                    const chHeader = document.createElement('div');
+                    chHeader.className = "mt-12 mb-6 border-b-2 border-stone-300 pb-2";
+                    chHeader.innerHTML = `<h2 class="text-3xl text-stone-800">Chapter ${currentChapter}</h2>`;
+                    container.appendChild(chHeader);
+
+                    chapterContainer = document.createElement('div');
+                    chapterContainer.className = "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6";
+                    container.appendChild(chapterContainer);
+                }
+                chapterContainer.appendChild(createCard(item));
+            });
+        }
+
+        render();
+    </script>
+</body>
+</html>
