@@ -63,6 +63,9 @@
             const [mode, setMode] = useState('VOCAB'); // VOCAB, DRILL, CHART, PARSE
             const [inputMode, setInputMode] = useState('MC'); // MC, TYPE (For Vocab/Drill)
             const [direction, setDirection] = useState('LAT_TO_ENG'); 
+            
+            // Grammar Settings
+            const [selectedTenses, setSelectedTenses] = useState(new Set(['Pres Ind', 'Imp Ind', 'Fut Ind']));
 
             // Quiz State
             const [queue, setQueue] = useState([]);
@@ -87,6 +90,16 @@
                 return Array.from(chapters).sort((a, b) => a - b);
             }, [db]);
 
+            // Filter keys (e.g., "Pres Ind 1sg") against selected tenses
+            const isKeyAllowed = (key) => {
+                // Nouns/Adjs don't have "Ind" in their keys (usually "Nom Sg" etc), so we always allow them
+                if (!key.includes('Ind')) return true;
+                
+                // Extract tense prefix: "Pres Ind" from "Pres Ind 1sg"
+                const tensePrefix = key.split(' ').slice(0, 2).join(' ');
+                return selectedTenses.has(tensePrefix);
+            };
+
             // -- LOGIC --
 
             const toggleChapter = (ch) => {
@@ -101,12 +114,27 @@
                 else setSelectedChapters(new Set(availableChapters));
             };
 
+            const toggleTense = (tense) => {
+                const newSet = new Set(selectedTenses);
+                if (newSet.has(tense)) {
+                    if (newSet.size > 1) newSet.delete(tense); // Prevent unselecting all
+                } else {
+                    newSet.add(tense);
+                }
+                setSelectedTenses(newSet);
+            };
+
             // Used for 'DRILL' mode (Form Generation)
             const generateDrillQuestion = (word) => {
                 if (!window.LatinMorph) return null;
                 const forms = window.LatinMorph.generateForms(word);
                 if (!forms) return null;
-                const keys = Object.keys(forms);
+                
+                // Filter available forms based on selected tenses
+                const keys = Object.keys(forms).filter(k => isKeyAllowed(k));
+                
+                if (keys.length === 0) return null;
+
                 const randomKey = keys[Math.floor(Math.random() * keys.length)];
                 
                 return {
@@ -122,16 +150,24 @@
                 const forms = window.LatinMorph.generateForms(word);
                 if (!forms) return null;
 
-                const keys = Object.keys(forms);
-                const correctKey = keys[Math.floor(Math.random() * keys.length)];
-                const correctValue = forms[correctKey]; // e.g., "agricolae"
+                // Filter keys based on selected tenses
+                const keys = Object.keys(forms).filter(k => isKeyAllowed(k));
+                if (keys.length === 0) return null;
 
-                // Distractors are other KEYS (e.g. Acc Sg) whose value is NOT "agricolae"
-                const distractorKeys = window.LatinMorph.getParseDistractors(word, correctKey, correctValue);
+                const correctKey = keys[Math.floor(Math.random() * keys.length)];
+                const correctValue = forms[correctKey]; 
+
+                // Distractors need to be filtered too (don't show "Future" option if Future is disabled)
+                let distractorKeys = window.LatinMorph.getParseDistractors(word, correctKey, correctValue);
+                distractorKeys = distractorKeys.filter(k => isKeyAllowed(k));
+                
+                // If we filtered out too many distractors, we might just have fewer options (which is fine for beginners)
+                // We'll slice after filtering
+                distractorKeys = distractorKeys.slice(0, 3);
 
                 return {
-                    prompt: correctValue, // Show "agricolae"
-                    answerLabel: window.LatinMorph.getFormattedLabel(correctKey), // Answer "Genitive Singular"
+                    prompt: correctValue, 
+                    answerLabel: window.LatinMorph.getFormattedLabel(correctKey), 
                     distractors: distractorKeys.map(k => window.LatinMorph.getFormattedLabel(k))
                 };
             };
@@ -226,12 +262,32 @@
                                         </button>
                                     </div>
 
-                                    {/* Sub-settings (Vocab/Drill only) */}
-                                    {(mode === 'VOCAB' || mode === 'DRILL') && (
+                                    {/* VOCAB OPTIONS */}
+                                    {(mode === 'VOCAB') && (
                                         <div className="bg-slate-50 p-3 rounded-lg border border-slate-200 flex gap-2">
                                             <div className="text-xs font-bold text-slate-400 self-center uppercase mr-2">Method:</div>
                                             <button onClick={() => setInputMode('MC')} className={`px-3 py-1 text-sm font-semibold rounded ${inputMode === 'MC' ? 'bg-white shadow text-slate-800' : 'text-slate-500'}`}>Multiple Choice</button>
                                             <button onClick={() => setInputMode('TYPE')} className={`px-3 py-1 text-sm font-semibold rounded ${inputMode === 'TYPE' ? 'bg-white shadow text-slate-800' : 'text-slate-500'}`}>Type</button>
+                                        </div>
+                                    )}
+
+                                    {/* GRAMMAR OPTIONS (Tense Selection) */}
+                                    {mode !== 'VOCAB' && (
+                                        <div className="bg-slate-50 p-3 rounded-lg border border-slate-200">
+                                            <div className="flex items-center justify-between mb-2">
+                                                <div className="text-xs font-bold text-slate-400 uppercase">Active Tenses:</div>
+                                                {mode === 'DRILL' && (
+                                                    <div className="flex bg-slate-200 rounded p-0.5">
+                                                        <button onClick={() => setInputMode('MC')} className={`px-2 py-0.5 text-[10px] font-bold rounded ${inputMode === 'MC' ? 'bg-white shadow text-slate-800' : 'text-slate-500'}`}>MC</button>
+                                                        <button onClick={() => setInputMode('TYPE')} className={`px-2 py-0.5 text-[10px] font-bold rounded ${inputMode === 'TYPE' ? 'bg-white shadow text-slate-800' : 'text-slate-500'}`}>Type</button>
+                                                    </div>
+                                                )}
+                                            </div>
+                                            <div className="flex gap-2">
+                                                <button onClick={() => toggleTense('Pres Ind')} className={`flex-1 py-2 text-sm font-semibold rounded ${selectedTenses.has('Pres Ind') ? 'bg-white border border-indigo-200 text-indigo-700 shadow-sm' : 'text-slate-400 border border-transparent'}`}>Present</button>
+                                                <button onClick={() => toggleTense('Imp Ind')} className={`flex-1 py-2 text-sm font-semibold rounded ${selectedTenses.has('Imp Ind') ? 'bg-white border border-indigo-200 text-indigo-700 shadow-sm' : 'text-slate-400 border border-transparent'}`}>Imperfect</button>
+                                                <button onClick={() => toggleTense('Fut Ind')} className={`flex-1 py-2 text-sm font-semibold rounded ${selectedTenses.has('Fut Ind') ? 'bg-white border border-indigo-200 text-indigo-700 shadow-sm' : 'text-slate-400 border border-transparent'}`}>Future</button>
+                                            </div>
                                         </div>
                                     )}
                                 </div>
@@ -289,6 +345,7 @@
                 return (
                     <ChartActivity 
                         word={currentWord} 
+                        allowedTenses={selectedTenses}
                         onComplete={() => {
                             setScore(s => ({ correct: s.correct + 1, total: s.total + 1 })); 
                             nextCard();
@@ -400,17 +457,20 @@
 
         // --- CHART ACTIVITY COMPONENT ---
 
-        function ChartActivity({ word, onComplete, onExit, progress }) {
+        function ChartActivity({ word, onComplete, onExit, progress, allowedTenses }) {
             // State for random tense (only applies if word is a verb)
             const [targetTense, setTargetTense] = useState('Pres Ind');
 
-            // Pick a random tense on load
+            // Pick a random tense on load based on ALLOWED TENSES
             useEffect(() => {
                 if (word.pos === 'v') {
-                    const tenses = ['Pres Ind', 'Imp Ind', 'Fut Ind'];
-                    setTargetTense(tenses[Math.floor(Math.random() * tenses.length)]);
+                    // Get tenses as array
+                    const tenses = Array.from(allowedTenses);
+                    if (tenses.length > 0) {
+                        setTargetTense(tenses[Math.floor(Math.random() * tenses.length)]);
+                    }
                 }
-            }, [word]);
+            }, [word, allowedTenses]);
 
             // Get grid structure
             const gridData = useMemo(() => window.LatinMorph.getChartData(word.pos), [word]);
